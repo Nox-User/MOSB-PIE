@@ -1,4 +1,3 @@
-<script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
   import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-database.js";
 
@@ -438,5 +437,3 @@
   window.confirmarRetirada = confirmarRetirada;
   window.aplicarFiltrosRetirada = aplicarFiltrosRetirada;
   window.limparFiltrosRetirada = limparFiltrosRetirada;
-
-</script>
