@@ -77,6 +77,12 @@ onValue(statusRef, (snapshot) => {
       { id: 3, name: 'FINALIZADO', position: "Quantidade de PPAP's finalizados", transactions: finalizado, rise: true, tasksCompleted: 1, imgId: 3 },
     ];
   }
+
+      const cards = document.getElementById('cards');
+    if(cards){
+      cards.innerHTML = ''; // limpa antes
+      statusdata.forEach(e => cards.appendChild(NameCard(e)));
+    }
 });
 
   const Countrydata = [
@@ -287,7 +293,7 @@ onValue(statusRef, (snapshot) => {
       </div>`;
 
     // Cards
-    statusdata.forEach(e=> cards.appendChild(NameCard(e)) );
+    
 
     // Gráfico
     Graph($('#graph', mount));
