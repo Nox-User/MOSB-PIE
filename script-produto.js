@@ -41,7 +41,46 @@
     requestAnimationFrame(frame);
   }
 
-  // ======== dados ========
+// Busca os dados no nó "ppaps" (exemplo de estrutura)
+const statusRef = ref(db, "produtos");
+
+onValue(statusRef, (snapshot) => {
+  if (snapshot.exists()) {
+    const data = snapshot.val();
+
+    // Contadores por status
+    let naoIniciado = 0;
+    let emAndamento = 0;
+    let finalizado = 0;
+
+    Object.values(data).forEach(produto => {
+      switch (produto.STATUS) {
+        case "NÃO INICIADO":
+          naoIniciado++;
+          break;
+        case "EM ANDAMENTO":
+          emAndamento++;
+          break;
+        case "FINALIZADO":
+          finalizado++;
+          break;
+      }
+    });
+
+    // Agora popula o statusdata dinamicamente
+    const statusdata = [
+      { id: 1, name: 'NÃO INICIADO', position: "Quantidade de PPAP's não iniciados", transactions: naoIniciado, rise: true, tasksCompleted: 3, imgId: 0 },
+      { id: 2, name: 'EM ANDAMENTO', position: "Quantidade de PPAP's em andamento", transactions: emAndamento, rise: true, tasksCompleted: 5, imgId: 2 },
+      { id: 3, name: 'FINALIZADO', position: "Quantidade de PPAP's finalizados", transactions: finalizado, rise: true, tasksCompleted: 1, imgId: 3 },
+    ];
+
+    // Atualiza os cards com base no statusdata
+    const cards = document.getElementById("cards");
+    cards.innerHTML = "";
+    statusdata.forEach(e => cards.appendChild(NameCard(e)));
+  }
+});
+
   const Countrydata = [
     { name: 'USA', rise: true, value: 21942.83, id: 1 },
     { name: 'Ireland', rise: false, value: 19710.0, id: 2 },
@@ -250,19 +289,7 @@
       </div>`;
 
     // Cards
-    //const cards = $('#cards', mount);
-const cards = document.getElementById("cards");
-const produtosRef = ref(db, "produto");
-
-onValue(produtosRef, (snapshot) => {
-  const data = snapshot.val();
-  cards.innerHTML = "";
-  if (!data) return;
-
-  Object.keys(data).forEach((id) => {
-    cards.appendChild(NameCard(data[id]));
-  });
-});
+    statusdata.forEach(e=> cards.appendChild(NameCard(e)) );
 
     // Gráfico
     Graph($('#graph', mount));
@@ -278,28 +305,69 @@ onValue(produtosRef, (snapshot) => {
     
   }
 
-function NameCard(produto){
-  const wrap = document.createElement('div');
-  wrap.className='w-full p-2 lg:w-1/3';
 
-  wrap.innerHTML = `
-    <div class="rounded-lg bg-card p-4 h-auto">
-      <div class="font-bold text-black text-lg mb-2">${produto.ITEM} (${produto["PART NUMBER"]})</div>
-      <div class="text-sm"><b>Cliente:</b> ${produto.CLIENTE}</div>
-      <div class="text-sm"><b>Material:</b> ${produto.MATERIAL}</div>
-      <div class="text-sm"><b>Espessura:</b> ${produto.ESPESSURA}</div>
-      <div class="text-sm"><b>Rev:</b> ${produto.REV}</div>
-      <div class="text-sm"><b>Ship Date:</b> ${produto["SHIP DATE"]}</div>
-      <div class="mt-2 text-sm font-semibold">
-        <b>Status:</b> 
-        <span class="${produto.Status === 'Finalizado' ? 'text-green-500' : produto.Status === 'Em andamento' ? 'text-yellow-500' : 'text-red-500'}">
-          ${produto.Status}
-        </span>
-      </div>
-    </div>
-  `;
-  return wrap;
-}
+  function NameCard({id, name, position, transactions, rise, tasksCompleted, imgId}){
+    const wrap = document.createElement('div');
+    wrap.className='w-full p-2 lg:w-1/3';
+
+    let statusIcon = '';
+      
+    switch(id){
+      case 1:
+          statusIcon = '<i class="fi fi-bs-cross"></i>';
+          break;
+      case 2:
+          statusIcon = '<i class="fi fi-bs-refresh"></i>';
+          break;
+      case 3:
+          statusIcon = '<i class="fi fi-bs-check"></i>';
+          break;
+      default:
+          statusIcon = '<i class="fa fa-question-circle"></i>';
+    }
+
+    wrap.innerHTML = `
+      <div class="rounded-lg bg-card flex justify-between p-3 h-32">
+        <div>
+          <div class="flex items-center">
+            ${statusIcon}
+            <div class="ml-2">
+              <div class="flex items-center">
+                <div class="mr-2 font-bold text-black">${name}</div>
+                ${Icon({path:'res-react-dash-tick', asHtml:true})}
+              </div>
+              <div class="text-sm text-gray-400">${position}</div>
+            </div>
+          </div>
+          <div class="text-sm mt-2">${tasksCompleted} de 5 tarefas completas</div>
+          <svg class="w-44 mt-3" height="6" viewBox="0 0 200 6" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="200" height="6" rx="3" fill="#2D2D2D" />
+            <rect id="bar" width="0" height="6" rx="3" fill="url(#paint0_linear)" />
+            <rect x="38" width="2" height="6" fill="#171717" />
+            <rect x="78" width="2" height="6" fill="#171717" />
+            <rect x="118" width="2" height="6" fill="#171717" />
+            <rect x="158" width="2" height="6" fill="#171717" />
+            <defs>
+              <linearGradient id="paint0_linear" x1="0" y1="0" x2="1" y2="0">
+                <stop stop-color="#8E76EF" />
+                <stop offset="1" stop-color="#3912D2" />
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div class="flex flex-col items-center">
+          ${Icon({path: rise? 'res-react-dash-bull':'res-react-dash-bear', className:'w-8 h-8', asHtml:true})}
+          <div class="font-bold text-lg ${rise? 'text-green-500':'text-red-500'}" id="money">0.00</div>
+          <div class="text-sm text-gray-400">No mês de: ${month}</div>
+        </div>
+      </div>`;
+    // animações
+    const bar = $('#bar', wrap);
+    const money = $('#money', wrap);
+    animateValue({ from:0, to:transactions, duration:900, onUpdate:(v)=>{ money.textContent = `${v.toFixed(0)}`; }});
+    animateValue({ from:0, to:(tasksCompleted/5)*200, duration:900, onUpdate:(w)=>{ bar.setAttribute('width', String(w)); }});
+    return wrap;
+  }
 
   // ======== Gráfico SVG responsivo (linhas) ========
   function Graph(mount){
