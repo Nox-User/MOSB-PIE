@@ -71,18 +71,12 @@ onValue(statusRef, (snapshot) => {
     });
 
     // Agora popula o statusdata dinamicamente
-    statusdata = [
+    const statusdata = [
       { id: 1, name: 'NÃO INICIADO', position: "Quantidade de PPAP's não iniciados", transactions: naoIniciado, rise: true, tasksCompleted: 3, imgId: 0 },
       { id: 2, name: 'EM ANDAMENTO', position: "Quantidade de PPAP's em andamento", transactions: emAndamento, rise: true, tasksCompleted: 5, imgId: 2 },
       { id: 3, name: 'FINALIZADO', position: "Quantidade de PPAP's finalizados", transactions: finalizado, rise: true, tasksCompleted: 1, imgId: 3 },
     ];
   }
-
-      const cards = document.getElementById('cards');
-    if(cards){
-      cards.innerHTML = ''; // limpa antes
-      statusdata.forEach(e => cards.appendChild(NameCard(e)));
-    }
 });
 
   const Countrydata = [
@@ -253,6 +247,7 @@ onValue(statusRef, (snapshot) => {
   }
   
   // ======== Conteúdo principal ========
+  
   function Content({ mount }){
     mount.innerHTML = `
       <div class="w-full sm:flex p-2 mt-4 items-end">
@@ -293,10 +288,16 @@ onValue(statusRef, (snapshot) => {
       </div>`;
 
     // Cards
-    
+    const cards = document.getElementById('cards');
+    if(cards){
+      cards.innerHTML = ''; // limpa antes
+      statusdata.forEach(e => cards.appendChild(NameCard(e)));
+    }
 
     // Gráfico
-    Graph($('#graph', mount));
+    fetchGraphData(graphArray => {
+      AnimatedGraph($('#graph'), graphArray);
+    });
 
     // Segmentação
     Segmentation($('#segmentation', mount));
@@ -309,6 +310,72 @@ onValue(statusRef, (snapshot) => {
     
   }
 
+  function AnimatedGraph(mount, data) {
+  mount.innerHTML = `<div id="svgWrap" style="width:100%;height:260px;position:relative;"></div>`;
+  const svgWrap = $('#svgWrap', mount);
+
+  function renderSvg() {
+    const w = svgWrap.clientWidth || 600;
+    const h = svgWrap.clientHeight || 260;
+    const pad = {l:48, r:16, t:30, b:28}; // mais topo para legendaAC
+    const x0 = pad.l, x1 = w - pad.r, y0 = h - pad.b, y1 = pad.t;
+
+    const xs = i => map(i, 0, data.length-1, x0, x1);
+    const maxY = Math.max(...data.map(d => Math.max(d.total, d.finished, d.ideal))) * 1.15;
+    const ys = v => map(v, 0, maxY, y0, y1);
+
+    const barWidth = (x1 - x0) / data.length * 0.6;
+
+    // Barras animadas
+    const bars = data.map((d,i) => `
+      <rect x="${xs(i)-barWidth/2}" y="${y0}" width="${barWidth}" height="0" fill="#6c5ce7">
+        <animate attributeName="y" from="${y0}" to="${ys(d.total)}" dur="0.8s" fill="freeze"/>
+        <animate attributeName="height" from="0" to="${y0-ys(d.total)}" dur="0.8s" fill="freeze"/>
+      </rect>
+    `).join('');
+
+    // Linhas animadas
+    const linePath = key => data.map((d,i)=>`${i?'L':'M'}${xs(i)} ${ys(d[key])}`).join(' ');
+
+    const lines = `
+      <path d="${linePath('finished')}" fill="none" stroke="#00b894" stroke-width="2">
+        <animate attributeName="stroke-dasharray" from="0,${x1}" to="${x1},0" dur="1s" fill="freeze"/>
+      </path>
+      <path d="${linePath('ideal')}" fill="none" stroke="#d63031" stroke-width="2" stroke-dasharray="5,5">
+        <animate attributeName="stroke-dasharray" from="0,${x1}" to="5,5" dur="1s" fill="freeze"/>
+      </path>
+    `;
+
+    // Eixo X
+    const xTicks = data.map((d,i) => `<text x="${xs(i)}" y="${y0 + 20}" text-anchor="middle">${d.name}</text>`).join('');
+
+    // Legenda
+    const legend = `
+      <g>
+        <rect x="${pad.l}" y="5" width="12" height="12" fill="#6c5ce7"/>
+        <text x="${pad.l+16}" y="16" font-size="12">Total</text>
+
+        <rect x="${pad.l+80}" y="5" width="12" height="12" fill="#00b894"/>
+        <text x="${pad.l+96}" y="16" font-size="12">Finalizado</text>
+
+        <rect x="${pad.l+180}" y="5" width="12" height="12" fill="#d63031"/>
+        <text x="${pad.l+196}" y="16" font-size="12">Meta</text>
+      </g>
+    `;
+
+    svgWrap.innerHTML = `
+      <svg width="${w}" height="${h}">
+        ${bars}
+        ${lines}
+        ${xTicks}
+        ${legend}
+      </svg>
+    `;
+  }
+
+  renderSvg();
+  new ResizeObserver(renderSvg).observe(svgWrap);
+}
 
   function NameCard({id, name, position, transactions, rise, tasksCompleted, imgId}){
     const wrap = document.createElement('div');
