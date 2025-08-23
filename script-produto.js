@@ -564,18 +564,6 @@ function renderForm(){
     </div>
   `;
 
-  // evento submit
-  const form = document.getElementById("produtoForm");
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const formData = new FormData(form);
-    const novoProduto = Object.fromEntries(formData.entries());
-
-    const newRef = push(ref(db, "produto"));
-    await set(newRef, novoProduto);
-    form.reset();
-    alert("Produto adicionado!");
-  });
 }
 
 renderForm();
