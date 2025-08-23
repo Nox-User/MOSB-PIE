@@ -42,6 +42,9 @@
   }
 
 // Busca os dados no nó "ppaps" (exemplo de estrutura)
+
+let statusdata = [];
+
 const statusRef = ref(db, "produtos");
 
 onValue(statusRef, (snapshot) => {
@@ -541,42 +544,6 @@ onValue(statusRef, (snapshot) => {
       </div>`;
   }
 
-function renderForm(){
-  const formDiv = document.getElementById("addProduto");
-  formDiv.innerHTML = `
-    <div class="rounded-lg bg-card p-4">
-      <h3 class="font-bold mb-2">Adicionar Produto</h3>
-      <form id="produtoForm" class="flex flex-col gap-2">
-        <input name="Cliente" placeholder="Cliente" class="border p-2 rounded"/>
-        <input name="Item" placeholder="Item" class="border p-2 rounded"/>
-        <input name="Material" placeholder="Material" class="border p-2 rounded"/>
-        <input name="Espessura" placeholder="Espessura" class="border p-2 rounded"/>
-        <input name="Part Number" placeholder="Part Number" class="border p-2 rounded"/>
-        <input name="rev" placeholder="Rev" class="border p-2 rounded"/>
-        <input name="Ship Date" placeholder="Ship Date (YYYY-MM-DD)" class="border p-2 rounded"/>
-        <select name="Status" class="border p-2 rounded">
-          <option value="Não iniciado">Não iniciado</option>
-          <option value="Em andamento">Em andamento</option>
-          <option value="Finalizado">Finalizado</option>
-        </select>
-        <button type="submit" class="bg-blue-500 text-white p-2 rounded">Salvar</button>
-      </form>
-    </div>
-  `;
-
-  // evento submit
-  const form = document.getElementById("produtoForm");
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const formData = new FormData(form);
-    const novoProduto = Object.fromEntries(formData.entries());
-
-    const newRef = push(ref(db, "produto"));
-    await set(newRef, novoProduto);
-    form.reset();
-    alert("Produto adicionado!");
-  });
-}
 
 renderForm();
 
