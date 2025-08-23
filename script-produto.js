@@ -73,11 +73,6 @@ onValue(statusRef, (snapshot) => {
       { id: 2, name: 'EM ANDAMENTO', position: "Quantidade de PPAP's em andamento", transactions: emAndamento, rise: true, tasksCompleted: 5, imgId: 2 },
       { id: 3, name: 'FINALIZADO', position: "Quantidade de PPAP's finalizados", transactions: finalizado, rise: true, tasksCompleted: 1, imgId: 3 },
     ];
-
-    // Atualiza os cards com base no statusdata
-    const cards = document.getElementById("cards");
-    cards.innerHTML = "";
-    statusdata.forEach(e => cards.appendChild(NameCard(e)));
   }
 });
 
