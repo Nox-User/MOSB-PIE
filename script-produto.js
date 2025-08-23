@@ -544,8 +544,5 @@ onValue(statusRef, (snapshot) => {
       </div>`;
   }
 
-
-renderForm();
-
   // init
 App();
