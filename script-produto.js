@@ -284,12 +284,12 @@ function NameCard(produto){
 
   wrap.innerHTML = `
     <div class="rounded-lg bg-card p-4 h-auto">
-      <div class="font-bold text-black text-lg mb-2">${produto.Item} (${produto["Part Number"]})</div>
-      <div class="text-sm"><b>Cliente:</b> ${produto.Cliente}</div>
-      <div class="text-sm"><b>Material:</b> ${produto.Material}</div>
-      <div class="text-sm"><b>Espessura:</b> ${produto.Espessura}</div>
-      <div class="text-sm"><b>Rev:</b> ${produto.rev}</div>
-      <div class="text-sm"><b>Ship Date:</b> ${produto["Ship Date"]}</div>
+      <div class="font-bold text-black text-lg mb-2">${produto.ITEM} (${produto["PART NUMBER"]})</div>
+      <div class="text-sm"><b>Cliente:</b> ${produto.CLIENTE}</div>
+      <div class="text-sm"><b>Material:</b> ${produto.MATERIAL}</div>
+      <div class="text-sm"><b>Espessura:</b> ${produto.ESPESSURA}</div>
+      <div class="text-sm"><b>Rev:</b> ${produto.REV}</div>
+      <div class="text-sm"><b>Ship Date:</b> ${produto["SHIP DATE"]}</div>
       <div class="mt-2 text-sm font-semibold">
         <b>Status:</b> 
         <span class="${produto.Status === 'Finalizado' ? 'text-green-500' : produto.Status === 'Em andamento' ? 'text-yellow-500' : 'text-red-500'}">
