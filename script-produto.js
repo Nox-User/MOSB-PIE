@@ -1,12 +1,22 @@
-// FireBase
 
+    // FireBase
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+  import { getDatabase, ref, onValue, push, set } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js";
 
+  const firebaseConfig = {
+    apiKey: "AIzaSyD53Q57GFkGSYH1p5mAfsxZIGBKnp8AEG8",
+    authDomain: "ferramentaria-d120f.firebaseapp.com",
+    databaseURL: "https://ferramentaria-d120f-default-rtdb.firebaseio.com",
+    projectId: "ferramentaria-d120f",
+    storageBucket: "ferramentaria-d120f.firebasestorage.app",
+    messagingSenderId: "227336233826",
+    appId: "1:227336233826:web:0fa15161281a6d896a823b",
+    measurementId: "G-2EVDBKX8S6"
+  };
 
-
-
-
-
-
+  // Inicializa Firebase
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
 
 // ======== helpers ========
 
@@ -31,12 +41,44 @@
     requestAnimationFrame(frame);
   }
 
-  // ======== dados ========
-  const statusdata = [
-    { id: 1, name: 'NÃO INICIADO', position: "Quantidade de PPAP's não iniciados", transactions: 6, rise: true, tasksCompleted: 3, imgId: 0 },
-    { id: 2, name: 'EM ANDAMENTO', position: "Quantidade de PPAP's em andamento", transactions: 2, rise: true, tasksCompleted: 5, imgId: 2 },
-    { id: 3, name: 'FINALIZADO', position: "Quantidade de PPAP's finalizados", transactions: 59, rise: true, tasksCompleted: 1, imgId: 3 },
-  ];
+// Busca os dados no nó "ppaps" (exemplo de estrutura)
+
+let statusdata = [];
+
+const statusRef = ref(db, "produtos");
+
+onValue(statusRef, (snapshot) => {
+  if (snapshot.exists()) {
+    const data = snapshot.val();
+
+    // Contadores por status
+    let naoIniciado = 0;
+    let emAndamento = 0;
+    let finalizado = 0;
+
+    Object.values(data).forEach(produto => {
+      switch (produto.STATUS) {
+        case "NÃO INICIADO":
+          naoIniciado++;
+          break;
+        case "EM ANDAMENTO":
+          emAndamento++;
+          break;
+        case "FINALIZADO":
+          finalizado++;
+          break;
+      }
+    });
+
+    // Agora popula o statusdata dinamicamente
+    const statusdata = [
+      { id: 1, name: 'NÃO INICIADO', position: "Quantidade de PPAP's não iniciados", transactions: naoIniciado, rise: true, tasksCompleted: 3, imgId: 0 },
+      { id: 2, name: 'EM ANDAMENTO', position: "Quantidade de PPAP's em andamento", transactions: emAndamento, rise: true, tasksCompleted: 5, imgId: 2 },
+      { id: 3, name: 'FINALIZADO', position: "Quantidade de PPAP's finalizados", transactions: finalizado, rise: true, tasksCompleted: 1, imgId: 3 },
+    ];
+  }
+});
+
   const Countrydata = [
     { name: 'USA', rise: true, value: 21942.83, id: 1 },
     { name: 'Ireland', rise: false, value: 19710.0, id: 2 },
@@ -205,6 +247,7 @@
   }
   
   // ======== Conteúdo principal ========
+  
   function Content({ mount }){
     mount.innerHTML = `
       <div class="w-full sm:flex p-2 mt-4 items-end">
@@ -229,7 +272,7 @@
       </div>
       <div id="cards" class="flex flex-wrap w-full"></div>
       <div class="w-full p-2 lg:w-2/3">
-        <div class="rounded-lg bg-card sm:h-80 h-60 p-0" id="graph"></div>
+        <div class="rounded-lg bg-card sm:h-80 h-60 p-0" id="fetchGraphData"></div>
       </div>
       <div class="w-full p-2 lg:w-1/3">
         <div class="rounded-lg bg-card h-80 p-4" id="topCountries"></div>
@@ -244,21 +287,95 @@
         <div class="rounded-lg bg-card overflow-hidden h-80" id="addComponent"></div>
       </div>`;
 
-    // Cards de pessoas
-    //const cards = $('#cards', mount);
-    statusdata.forEach(e=> cards.appendChild(NameCard(e)) );
+    // Cards
+    const cards = document.getElementById('cards');
+    if(cards){
+      cards.innerHTML = ''; // limpa antes
+      statusdata.forEach(e => cards.appendChild(NameCard(e)));
+    }
+
     // Gráfico
-    Graph($('#graph', mount));
-    // Países
-    //TopCountries($('#topCountries', mount));
+    fetchGraphData(graphArray => {
+      AnimatedGraph($('#graph'), graphArray);
+    });
+
     // Segmentação
     Segmentation($('#segmentation', mount));
+
     // Satisfação
     Satisfaction($('#satisfaction', mount));
+
     // Add component
     //AddComponent($('#addComponent', mount));
     
   }
+
+  function AnimatedGraph(mount, data) {
+  mount.innerHTML = `<div id="svgWrap" style="width:100%;height:260px;position:relative;"></div>`;
+  const svgWrap = $('#svgWrap', mount);
+
+  function renderSvg() {
+    const w = svgWrap.clientWidth || 600;
+    const h = svgWrap.clientHeight || 260;
+    const pad = {l:48, r:16, t:30, b:28}; // mais topo para legendaAC
+    const x0 = pad.l, x1 = w - pad.r, y0 = h - pad.b, y1 = pad.t;
+
+    const xs = i => map(i, 0, data.length-1, x0, x1);
+    const maxY = Math.max(...data.map(d => Math.max(d.total, d.finished, d.ideal))) * 1.15;
+    const ys = v => map(v, 0, maxY, y0, y1);
+
+    const barWidth = (x1 - x0) / data.length * 0.6;
+
+    // Barras animadas
+    const bars = data.map((d,i) => `
+      <rect x="${xs(i)-barWidth/2}" y="${y0}" width="${barWidth}" height="0" fill="#6c5ce7">
+        <animate attributeName="y" from="${y0}" to="${ys(d.total)}" dur="0.8s" fill="freeze"/>
+        <animate attributeName="height" from="0" to="${y0-ys(d.total)}" dur="0.8s" fill="freeze"/>
+      </rect>
+    `).join('');
+
+    // Linhas animadas
+    const linePath = key => data.map((d,i)=>`${i?'L':'M'}${xs(i)} ${ys(d[key])}`).join(' ');
+
+    const lines = `
+      <path d="${linePath('finished')}" fill="none" stroke="#00b894" stroke-width="2">
+        <animate attributeName="stroke-dasharray" from="0,${x1}" to="${x1},0" dur="1s" fill="freeze"/>
+      </path>
+      <path d="${linePath('ideal')}" fill="none" stroke="#d63031" stroke-width="2" stroke-dasharray="5,5">
+        <animate attributeName="stroke-dasharray" from="0,${x1}" to="5,5" dur="1s" fill="freeze"/>
+      </path>
+    `;
+
+    // Eixo X
+    const xTicks = data.map((d,i) => `<text x="${xs(i)}" y="${y0 + 20}" text-anchor="middle">${d.name}</text>`).join('');
+
+    // Legenda
+    const legend = `
+      <g>
+        <rect x="${pad.l}" y="5" width="12" height="12" fill="#6c5ce7"/>
+        <text x="${pad.l+16}" y="16" font-size="12">Total</text>
+
+        <rect x="${pad.l+80}" y="5" width="12" height="12" fill="#00b894"/>
+        <text x="${pad.l+96}" y="16" font-size="12">Finalizado</text>
+
+        <rect x="${pad.l+180}" y="5" width="12" height="12" fill="#d63031"/>
+        <text x="${pad.l+196}" y="16" font-size="12">Meta</text>
+      </g>
+    `;
+
+    svgWrap.innerHTML = `
+      <svg width="${w}" height="${h}">
+        ${bars}
+        ${lines}
+        ${xTicks}
+        ${legend}
+      </svg>
+    `;
+  }
+
+  renderSvg();
+  new ResizeObserver(renderSvg).observe(svgWrap);
+}
 
   function NameCard({id, name, position, transactions, rise, tasksCompleted, imgId}){
     const wrap = document.createElement('div');
