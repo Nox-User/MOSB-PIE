@@ -272,7 +272,7 @@ onValue(statusRef, (snapshot) => {
       </div>
       <div id="cards" class="flex flex-wrap w-full"></div>
       <div class="w-full p-2 lg:w-2/3">
-        <div class="rounded-lg bg-card sm:h-80 h-60 p-0" id="graph"></div>
+        <div class="rounded-lg bg-card sm:h-80 h-60 p-0" id="fetchGraphData"></div>
       </div>
       <div class="w-full p-2 lg:w-1/3">
         <div class="rounded-lg bg-card h-80 p-4" id="topCountries"></div>
