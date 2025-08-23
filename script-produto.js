@@ -1,4 +1,5 @@
-// FireBase
+
+    // FireBase
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
   import { getDatabase, ref, onValue, push, set } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js";
 
@@ -41,11 +42,6 @@
   }
 
   // ======== dados ========
-  const statusdata = [
-    { id: 1, name: 'NÃO INICIADO', position: "Quantidade de PPAP's não iniciados", transactions: 6, rise: true, tasksCompleted: 3, imgId: 0 },
-    { id: 2, name: 'EM ANDAMENTO', position: "Quantidade de PPAP's em andamento", transactions: 2, rise: true, tasksCompleted: 5, imgId: 2 },
-    { id: 3, name: 'FINALIZADO', position: "Quantidade de PPAP's finalizados", transactions: 59, rise: true, tasksCompleted: 1, imgId: 3 },
-  ];
   const Countrydata = [
     { name: 'USA', rise: true, value: 21942.83, id: 1 },
     { name: 'Ireland', rise: false, value: 19710.0, id: 2 },
@@ -253,84 +249,57 @@
         <div class="rounded-lg bg-card overflow-hidden h-80" id="addComponent"></div>
       </div>`;
 
-    // Cards de pessoas
+    // Cards
     //const cards = $('#cards', mount);
-    statusdata.forEach(e=> cards.appendChild(NameCard(e)) );
+const cards = document.getElementById("cards");
+const produtosRef = ref(db, "produto");
+
+onValue(produtosRef, (snapshot) => {
+  const data = snapshot.val();
+  cards.innerHTML = "";
+  if (!data) return;
+
+  Object.keys(data).forEach((id) => {
+    cards.appendChild(NameCard(data[id]));
+  });
+});
+
     // Gráfico
     Graph($('#graph', mount));
-    // Países
-    //TopCountries($('#topCountries', mount));
+
     // Segmentação
     Segmentation($('#segmentation', mount));
+
     // Satisfação
     Satisfaction($('#satisfaction', mount));
+
     // Add component
     //AddComponent($('#addComponent', mount));
     
   }
 
-  function NameCard({id, name, position, transactions, rise, tasksCompleted, imgId}){
-    const wrap = document.createElement('div');
-    wrap.className='w-full p-2 lg:w-1/3';
+function NameCard(produto){
+  const wrap = document.createElement('div');
+  wrap.className='w-full p-2 lg:w-1/3';
 
-    let statusIcon = '';
-      
-    switch(id){
-      case 1:
-          statusIcon = '<i class="fi fi-bs-cross"></i>';
-          break;
-      case 2:
-          statusIcon = '<i class="fi fi-bs-refresh"></i>';
-          break;
-      case 3:
-          statusIcon = '<i class="fi fi-bs-check"></i>';
-          break;
-      default:
-          statusIcon = '<i class="fa fa-question-circle"></i>';
-    }
-
-    wrap.innerHTML = `
-      <div class="rounded-lg bg-card flex justify-between p-3 h-32">
-        <div>
-          <div class="flex items-center">
-            ${statusIcon}
-            <div class="ml-2">
-              <div class="flex items-center">
-                <div class="mr-2 font-bold text-black">${name}</div>
-                ${Icon({path:'res-react-dash-tick', asHtml:true})}
-              </div>
-              <div class="text-sm text-gray-400">${position}</div>
-            </div>
-          </div>
-          <div class="text-sm mt-2">${tasksCompleted} de 5 tarefas completas</div>
-          <svg class="w-44 mt-3" height="6" viewBox="0 0 200 6" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="200" height="6" rx="3" fill="#2D2D2D" />
-            <rect id="bar" width="0" height="6" rx="3" fill="url(#paint0_linear)" />
-            <rect x="38" width="2" height="6" fill="#171717" />
-            <rect x="78" width="2" height="6" fill="#171717" />
-            <rect x="118" width="2" height="6" fill="#171717" />
-            <rect x="158" width="2" height="6" fill="#171717" />
-            <defs>
-              <linearGradient id="paint0_linear" x1="0" y1="0" x2="1" y2="0">
-                <stop stop-color="#8E76EF" />
-                <stop offset="1" stop-color="#3912D2" />
-              </linearGradient>
-            </defs>
-          </svg>
-        </div>
-        <div class="flex flex-col items-center">
-          ${Icon({path: rise? 'res-react-dash-bull':'res-react-dash-bear', className:'w-8 h-8', asHtml:true})}
-          <div class="font-bold text-lg ${rise? 'text-green-500':'text-red-500'}" id="money">0.00</div>
-          <div class="text-sm text-gray-400">No mês de: ${month}</div>
-        </div>
-      </div>`;
-    // animações
-    const bar = $('#bar', wrap);
-    const money = $('#money', wrap);
-    animateValue({ from:0, to:transactions, duration:900, onUpdate:(v)=>{ money.textContent = `${v.toFixed(0)}`; }});
-    animateValue({ from:0, to:(tasksCompleted/5)*200, duration:900, onUpdate:(w)=>{ bar.setAttribute('width', String(w)); }});
-    return wrap;
-  }
+  wrap.innerHTML = `
+    <div class="rounded-lg bg-card p-4 h-auto">
+      <div class="font-bold text-black text-lg mb-2">${produto.Item} (${produto["Part Number"]})</div>
+      <div class="text-sm"><b>Cliente:</b> ${produto.Cliente}</div>
+      <div class="text-sm"><b>Material:</b> ${produto.Material}</div>
+      <div class="text-sm"><b>Espessura:</b> ${produto.Espessura}</div>
+      <div class="text-sm"><b>Rev:</b> ${produto.rev}</div>
+      <div class="text-sm"><b>Ship Date:</b> ${produto["Ship Date"]}</div>
+      <div class="mt-2 text-sm font-semibold">
+        <b>Status:</b> 
+        <span class="${produto.Status === 'Finalizado' ? 'text-green-500' : produto.Status === 'Em andamento' ? 'text-yellow-500' : 'text-red-500'}">
+          ${produto.Status}
+        </span>
+      </div>
+    </div>
+  `;
+  return wrap;
+}
 
   // ======== Gráfico SVG responsivo (linhas) ========
   function Graph(mount){
@@ -508,6 +477,45 @@
         </div>
       </div>`;
   }
+
+function renderForm(){
+  const formDiv = document.getElementById("addProduto");
+  formDiv.innerHTML = `
+    <div class="rounded-lg bg-card p-4">
+      <h3 class="font-bold mb-2">Adicionar Produto</h3>
+      <form id="produtoForm" class="flex flex-col gap-2">
+        <input name="Cliente" placeholder="Cliente" class="border p-2 rounded"/>
+        <input name="Item" placeholder="Item" class="border p-2 rounded"/>
+        <input name="Material" placeholder="Material" class="border p-2 rounded"/>
+        <input name="Espessura" placeholder="Espessura" class="border p-2 rounded"/>
+        <input name="Part Number" placeholder="Part Number" class="border p-2 rounded"/>
+        <input name="rev" placeholder="Rev" class="border p-2 rounded"/>
+        <input name="Ship Date" placeholder="Ship Date (YYYY-MM-DD)" class="border p-2 rounded"/>
+        <select name="Status" class="border p-2 rounded">
+          <option value="Não iniciado">Não iniciado</option>
+          <option value="Em andamento">Em andamento</option>
+          <option value="Finalizado">Finalizado</option>
+        </select>
+        <button type="submit" class="bg-blue-500 text-white p-2 rounded">Salvar</button>
+      </form>
+    </div>
+  `;
+
+  // evento submit
+  const form = document.getElementById("produtoForm");
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const formData = new FormData(form);
+    const novoProduto = Object.fromEntries(formData.entries());
+
+    const newRef = push(ref(db, "produto"));
+    await set(newRef, novoProduto);
+    form.reset();
+    alert("Produto adicionado!");
+  });
+}
+
+renderForm();
 
   // init
 App();
