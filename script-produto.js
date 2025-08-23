@@ -17,40 +17,6 @@
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
 
-  // Escuta os dados do nó "produto"
-  const produtosRef = ref(db, "produto");
-  onValue(produtosRef, (snapshot) => {
-    const data = snapshot.val();
-    console.log("Dados do Firebase:", data);
-
-    // aqui você pode chamar uma função para renderizar na tela
-    renderProdutos(data);
-  });
-
-  // Exemplo de função para renderizar
-  function renderProdutos(produtos) {
-    const container = document.getElementById("cards");
-    container.innerHTML = "";
-    if (!produtos) return;
-
-    Object.keys(produtos).forEach((id) => {
-      const p = produtos[id];
-      const card = document.createElement("div");
-      card.className = "rounded-lg bg-card p-3 m-2";
-      card.innerHTML = `
-        <div><b>Cliente:</b> ${p.CLIENTE}</div>
-        <div><b>Item:</b> ${p.ITEM}</div>
-        <div><b>Material:</b> ${p.MATERIAL}</div>
-        <div><b>PN:</b> ${p["PART NUMBER"]}</div>
-        <div><b>Rev:</b> ${p.REV}</div>
-        <div><b>Espessura:</b> ${p.ESPESSURA}</div>
-        <div><b>Ship Date:</b> ${p["SHIP DATE"]}</div>
-        <div><b>Status:</b> ${p.STATUS}</div>
-      `;
-      container.appendChild(card);
-    });
-  }
-
 // ======== helpers ========
 
   // Data Atual
