@@ -100,7 +100,7 @@ onValue(statusRef, (snapshot) => {
     { c1: 'Solda', c2: '3', c3: '#334ed8', color: '#2c3051' },
   ];
   const months = ['Jan','Feb','Mar','Abr','Mai','Jun','Jul','Ago','Set'];
-  const graphData = months.scaleMap((m)=>{
+  const graphData = months.map((m)=>{
   const revenue = 500 + Math.random()*2000;
   const expectedRevenue = Math.max(revenue + (Math.random()-0.5)*2000, 0);
     return { name:m, revenue, expectedRevenue, sales: Math.floor(Math.random()*500) };
