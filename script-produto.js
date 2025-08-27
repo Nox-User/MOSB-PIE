@@ -70,8 +70,7 @@ onValue(statusRef, (snapshot) => {
       }
     });
 
-    // Agora popula o statusdata dinamicamente
-    const statusdata = [
+    statusdata = [
       { id: 1, name: 'NÃO INICIADO', position: "Quantidade de PPAP's não iniciados", transactions: naoIniciado, rise: true, tasksCompleted: 3, imgId: 0 },
       { id: 2, name: 'EM ANDAMENTO', position: "Quantidade de PPAP's em andamento", transactions: emAndamento, rise: true, tasksCompleted: 5, imgId: 2 },
       { id: 3, name: 'FINALIZADO', position: "Quantidade de PPAP's finalizados", transactions: finalizado, rise: true, tasksCompleted: 1, imgId: 3 },
@@ -272,7 +271,7 @@ onValue(statusRef, (snapshot) => {
       </div>
       <div id="cards" class="flex flex-wrap w-full"></div>
       <div class="w-full p-2 lg:w-2/3">
-        <div class="rounded-lg bg-card sm:h-80 h-60 p-0" id="AnimatedGraph"></div>
+        <div class="rounded-lg bg-card sm:h-80 h-60 p-0" id="graph"></div>
       </div>
       <div class="w-full p-2 lg:w-1/3">
         <div class="rounded-lg bg-card h-80 p-4" id="topCountries"></div>
@@ -296,7 +295,7 @@ onValue(statusRef, (snapshot) => {
 
     // Gráfico
     //fetchGraphData(graphArray => {
-      AnimatedGraph($('#graph'), graphArray);
+      AnimatedGraph($('#graph'), graphData);
     //});
 
     // Segmentação
