@@ -100,7 +100,7 @@ onValue(statusRef, (snapshot) => {
     { c1: 'Solda', c2: '3', c3: '#334ed8', color: '#2c3051' },
   ];
   const months = ['Jan','Feb','Mar','Abr','Mai','Jun','Jul','Ago','Set'];
-  const graphData = months.map((m)=>{
+  const graphData = months.scaleMap((m)=>{
   const revenue = 500 + Math.random()*2000;
   const expectedRevenue = Math.max(revenue + (Math.random()-0.5)*2000, 0);
     return { name:m, revenue, expectedRevenue, sales: Math.floor(Math.random()*500) };
@@ -125,7 +125,7 @@ function groupByMonth(products) {
     if (p.status === "finalizado") grouped[m].sales += 1;
   });
 
-  return Object.keys(grouped).map(m => ({
+  return Object.keys(grouped).scaleMap(m => ({
     month: m,
     ...grouped[m]
   }));
@@ -358,13 +358,13 @@ function AnimatedGraph({ data, width=700, height=400 }) {
     ? (x0+x1)/2
     : scaleMap(i, 0, data.length-1, x0, x1);
 
-  const maxY = Math.max(...data.map(d => Math.max(d.revenue, d.sales, d.expectedRevenue))) * 1.15 || 1;
+  const maxY = Math.max(...data.scaleMap(d => Math.max(d.revenue, d.sales, d.expectedRevenue))) * 1.15 || 1;
   const ys = v => scaleMap(v, 0, maxY, y0, y1);
 
   const barWidth = (x1 - x0) / data.length * 0.6;
 
   // Barras animadas
-  const bars = data.map((d,i) => `
+  const bars = data.scaleMap((d,i) => `
     <rect x="${xs(i)-barWidth/2}" y="${y0}" width="${barWidth}" height="0" fill="#6c5ce7">
       <animate attributeName="y" from="${y0}" to="${ys(d.revenue)}" dur="0.8s" fill="freeze"/>
       <animate attributeName="height" from="0" to="${y0-ys(d.revenue)}" dur="0.8s" fill="freeze"/>
@@ -372,13 +372,13 @@ function AnimatedGraph({ data, width=700, height=400 }) {
   `).join('');
 
   // Linhas
-  const linePath = key => data.map((d,i)=>`${i?'L':'M'}${xs(i)} ${ys(d[key])}`).join(' ');
+  const linePath = key => data.scaleMap((d,i)=>`${i?'L':'M'}${xs(i)} ${ys(d[key])}`).join(' ');
 
   const lineSales = `<path d="${linePath('sales')}" fill="none" stroke="green" stroke-width="2"/>`;
   const lineExpected = `<path d="${linePath('expectedRevenue')}" fill="none" stroke="red" stroke-width="2" stroke-dasharray="6 4"/>`;
 
   // Eixo X
-  const xAxis = data.map((d,i) => `
+  const xAxis = data.scaleMap((d,i) => `
     <text x="${xs(i)}" y="${y0+20}" text-anchor="middle" font-size="12">${d.month}</text>
   `).join('');
 
@@ -500,11 +500,11 @@ onValue(ref(db, "produto"), snapshot => {
       const h = svgWrap.clientHeight || 260;
       const pad = {l:48, r:16, t:10, b:28};
       const x0 = pad.l, x1 = w - pad.r, y0 = h - pad.b, y1 = pad.t;
-      const xs = (i)=> map(i, 0, graphData.length-1, x0, x1);
-      const maxY = Math.max(...graphData.map(d=>Math.max(d.revenue,d.expectedRevenue)))*1.15;
-      const ys = (v)=> map(v, 0, maxY, y0, y1);
-      const path = (key)=> graphData.map((d,i)=> `${i? 'L':'M'} ${xs(i)} ${ys(d[key])}`).join(' ');
-      const xTicks = graphData.map((d,i)=>({x: xs(i), label:d.name}));
+      const xs = (i)=> scaleMap(i, 0, graphData.length-1, x0, x1);
+      const maxY = Math.max(...graphData.scaleMap(d=>Math.max(d.revenue,d.expectedRevenue)))*1.15;
+      const ys = (v)=> scaleMap(v, 0, maxY, y0, y1);
+      const path = (key)=> graphData.scaleMap((d,i)=> `${i? 'L':'M'} ${xs(i)} ${ys(d[key])}`).join(' ');
+      const xTicks = graphData.scaleMap((d,i)=>({x: xs(i), label:d.name}));
 
       svgWrap.innerHTML = `
         <svg viewBox="0 0 ${w} ${h}" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
@@ -515,9 +515,9 @@ onValue(ref(db, "produto"), snapshot => {
             </linearGradient>
           </defs>
           <!-- grid vertical -->
-          ${xTicks.map(t=>`<line x1="${t.x}" x2="${t.x}" y1="${y1}" y2="${y0}" stroke="#252525" stroke-width="6"/>`).join('')}
+          ${xTicks.scaleMap(t=>`<line x1="${t.x}" x2="${t.x}" y1="${y1}" y2="${y0}" stroke="#252525" stroke-width="6"/>`).join('')}
           <!-- eixo X labels -->
-          ${xTicks.map(t=>`<text x="${t.x}" y="${h-8}" text-anchor="middle" font-size="12" fill="#9aa1b2">${t.label}</text>`).join('')}
+          ${xTicks.scaleMap(t=>`<text x="${t.x}" y="${h-8}" text-anchor="middle" font-size="12" fill="#9aa1b2">${t.label}</text>`).join('')}
           <!-- linhas -->
           <path d="${path('expectedRevenue')}" fill="none" stroke="#242424" stroke-width="3" class="stroke-dash"/>
           <path id="rev" d="${path('revenue')}" fill="none" stroke="url(#paint0_linear)" stroke-width="4"/>
@@ -625,8 +625,8 @@ onValue(ref(db, "produto"), snapshot => {
     animateValue({from:785.4, to:78.54, duration:1500, easing:(t)=>1-Math.pow(1-t,3), onUpdate:(v)=>{
       path.setAttribute('stroke-dashoffset', String(v));
       const pi = Math.PI; const tau = 2*pi;
-      const cx = 350 + 250 * Math.cos(map(v, 785.4, 0, pi, tau));
-      const cy = 350 + 250 * Math.sin(map(v, 785.4, 0, pi, tau));
+      const cx = 350 + 250 * Math.cos(scaleMap(v, 785.4, 0, pi, tau));
+      const cy = 350 + 250 * Math.sin(scaleMap(v, 785.4, 0, pi, tau));
       dot.setAttribute('cx', String(cx));
       dot.setAttribute('cy', String(cy));
     }});
