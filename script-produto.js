@@ -20,6 +20,11 @@
 
 // ======== helpers ========
 
+// Util
+const map = (value, inMin, inMax, outMin, outMax) =>
+  (value - inMin) * (outMax - outMin) / (inMax - inMin) + outMin;
+
+
   // Data Atual
   const now = new Date();
 
@@ -29,7 +34,9 @@
   const $ = (sel, ctx=document) => ctx.querySelector(sel);
   const $$ = (sel, ctx=document) => Array.from(ctx.querySelectorAll(sel));
   const clsx = (...parts) => parts.filter(Boolean).join(' ');
-  const map = (value, sMin, sMax, dMin, dMax) => dMin + ((value - sMin) / (sMax - sMin)) * (dMax - dMin);
+
+  //const map = (value, sMin, sMax, dMin, dMax) => dMin + ((value - sMin) / (sMax - sMin)) * (dMax - dMin);
+
   function animateValue({from=0, to=1, duration=800, onUpdate, easing=(t)=>t, onComplete}){
     const start = performance.now();
     function frame(now){
@@ -98,6 +105,28 @@ onValue(statusRef, (snapshot) => {
   });
 
   // ======== montagem ========
+  
+// Função para agrupar produtos por mês
+function groupByMonth(products) {
+  const months = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+  let grouped = {};
+
+  products.forEach(p => {
+    let date = new Date(p.shipDate); // shipDate salvo no banco
+    let m = months[date.getMonth()];
+    if (!grouped[m]) {
+      grouped[m] = { revenue: 0, sales: 0, expectedRevenue: 43 };
+    }
+    grouped[m].revenue += 1; // total por mês
+    if (p.status === "finalizado") grouped[m].sales += 1;
+  });
+
+  return Object.keys(grouped).map(m => ({
+    month: m,
+    ...grouped[m]
+  }));
+}
+
   function App(){
     const root = document.getElementById('root');
     root.innerHTML = `
@@ -309,72 +338,65 @@ onValue(statusRef, (snapshot) => {
     
   }
 
-  function AnimatedGraph(mount, data) {
-  mount.innerHTML = `<div id="svgWrap" style="width:100%;height:260px;position:relative;"></div>`;
-  const svgWrap = $('#svgWrap', mount);
+// Gráfico animado
+function AnimatedGraph({ data, width=700, height=400 }) {
+  const margin = {top: 20, right: 30, bottom: 30, left: 40};
+  const x0 = margin.left, y0 = height - margin.bottom;
+  const x1 = width - margin.right, y1 = margin.top;
 
-  function renderSvg() {
-    const w = svgWrap.clientWidth || 600;
-    const h = svgWrap.clientHeight || 260;
-    const pad = {l:48, r:16, t:30, b:28}; // mais topo para legendaAC
-    const x0 = pad.l, x1 = w - pad.r, y0 = h - pad.b, y1 = pad.t;
+  const xs = i => map(i, 0, data.length-1, x0, x1);
+  const maxY = Math.max(...data.map(d => Math.max(d.revenue, d.sales, d.expectedRevenue))) * 1.15;
+  const ys = v => map(v, 0, maxY, y0, y1);
 
-    const xs = i => map(i, 0, data.length-1, x0, x1);
-    const maxY = Math.max(...data.map(d => Math.max(d.total, d.finished, d.ideal))) * 1.15;
-    const ys = v => map(v, 0, maxY, y0, y1);
+  const barWidth = (x1 - x0) / data.length * 0.6;
 
-    const barWidth = (x1 - x0) / data.length * 0.6;
+  // Barras animadas (revenue)
+  const bars = data.map((d,i) => `
+    <rect x="${xs(i)-barWidth/2}" y="${y0}" width="${barWidth}" height="0" fill="#6c5ce7">
+      <animate attributeName="y" from="${y0}" to="${ys(d.revenue)}" dur="0.8s" fill="freeze"/>
+      <animate attributeName="height" from="0" to="${y0-ys(d.revenue)}" dur="0.8s" fill="freeze"/>
+    </rect>
+  `).join('');
 
-    // Barras animadas
-    const bars = data.map((d,i) => `
-      <rect x="${xs(i)-barWidth/2}" y="${y0}" width="${barWidth}" height="0" fill="#6c5ce7">
-        <animate attributeName="y" from="${y0}" to="${ys(d.total)}" dur="0.8s" fill="freeze"/>
-        <animate attributeName="height" from="0" to="${y0-ys(d.total)}" dur="0.8s" fill="freeze"/>
-      </rect>
-    `).join('');
+  // Linhas
+  const linePath = key => data.map((d,i)=>`${i?'L':'M'}${xs(i)} ${ys(d[key])}`).join(' ');
 
-    // Linhas animadas
-    const linePath = key => data.map((d,i)=>`${i?'L':'M'}${xs(i)} ${ys(d[key])}`).join(' ');
+  const lineSales = `<path d="${linePath('sales')}" fill="none" stroke="green" stroke-width="2"/>`;
+  const lineExpected = `<path d="${linePath('expectedRevenue')}" fill="none" stroke="red" stroke-width="2" stroke-dasharray="6 4"/>`;
 
-    const lines = `
-      <path d="${linePath('finished')}" fill="none" stroke="#00b894" stroke-width="2">
-        <animate attributeName="stroke-dasharray" from="0,${x1}" to="${x1},0" dur="1s" fill="freeze"/>
-      </path>
-      <path d="${linePath('ideal')}" fill="none" stroke="#d63031" stroke-width="2" stroke-dasharray="5,5">
-        <animate attributeName="stroke-dasharray" from="0,${x1}" to="5,5" dur="1s" fill="freeze"/>
-      </path>
-    `;
+  // Eixos (simples)
+  const xAxis = data.map((d,i) => `
+    <text x="${xs(i)}" y="${y0+20}" text-anchor="middle" font-size="12">${d.month}</text>
+  `).join('');
 
-    // Eixo X
-    const xTicks = data.map((d,i) => `<text x="${xs(i)}" y="${y0 + 20}" text-anchor="middle">${d.name}</text>`).join('');
+  const yTicks = 5;
+  const yAxis = Array.from({length:yTicks+1}, (_,i)=>{
+    const v = i*maxY/yTicks;
+    return `<text x="${x0-5}" y="${ys(v)+4}" text-anchor="end" font-size="10">${Math.round(v)}</text>`;
+  }).join('');
 
-    // Legenda
-    const legend = `
-      <g>
-        <rect x="${pad.l}" y="5" width="12" height="12" fill="#6c5ce7"/>
-        <text x="${pad.l+16}" y="16" font-size="12">Total</text>
-
-        <rect x="${pad.l+80}" y="5" width="12" height="12" fill="#00b894"/>
-        <text x="${pad.l+96}" y="16" font-size="12">Finalizado</text>
-
-        <rect x="${pad.l+180}" y="5" width="12" height="12" fill="#d63031"/>
-        <text x="${pad.l+196}" y="16" font-size="12">Meta</text>
-      </g>
-    `;
-
-    svgWrap.innerHTML = `
-      <svg width="${w}" height="${h}">
-        ${bars}
-        ${lines}
-        ${xTicks}
-        ${legend}
-      </svg>
-    `;
-  }
-
-  renderSvg();
-  new ResizeObserver(renderSvg).observe(svgWrap);
+  return `
+    <svg width="${width}" height="${height}">
+      ${bars}
+      ${lineSales}
+      ${lineExpected}
+      ${xAxis}
+      ${yAxis}
+    </svg>
+  `;
 }
+
+// Listener Firebase
+onValue(ref(db, "produto"), snapshot => {
+  const produtos = [];
+  snapshot.forEach(child => {
+    produtos.push(child.val());
+  });
+
+  const graphData = groupByMonth(produtos);
+
+  document.getElementById("graph").innerHTML = AnimatedGraph({ data: graphData });
+});
 
   function NameCard({id, name, position, transactions, rise, tasksCompleted, imgId}){
     const wrap = document.createElement('div');
