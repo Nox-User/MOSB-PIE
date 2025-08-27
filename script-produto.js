@@ -20,9 +20,11 @@
 
 // ======== helpers ========
 
-// Util
-const map = (value, inMin, inMax, outMin, outMax) =>
-  (value - inMin) * (outMax - outMin) / (inMax - inMin) + outMin;
+// Evita conflito com Array.map
+const scaleMap = (value, inMin, inMax, outMin, outMax) => {
+  if (inMax === inMin) return (outMin + outMax) / 2; // evita divisão por zero
+  return (value - inMin) * (outMax - outMin) / (inMax - inMin) + outMin;
+};
 
 
   // Data Atual
@@ -106,13 +108,15 @@ onValue(statusRef, (snapshot) => {
 
   // ======== montagem ========
   
-// Função para agrupar produtos por mês
+// Agrupar produtos por mês
 function groupByMonth(products) {
   const months = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
   let grouped = {};
 
   products.forEach(p => {
-    let date = new Date(p.shipDate); // shipDate salvo no banco
+    if (!p.shipDate) return; // protege contra dados sem data
+    let date = new Date(p.shipDate);
+    if (isNaN(date)) return; // protege contra data inválida
     let m = months[date.getMonth()];
     if (!grouped[m]) {
       grouped[m] = { revenue: 0, sales: 0, expectedRevenue: 43 };
@@ -338,19 +342,28 @@ function groupByMonth(products) {
     
   }
 
-// Gráfico animado
+// ---- Gráfico animado ----
 function AnimatedGraph({ data, width=700, height=400 }) {
+  if (!Array.isArray(data) || data.length === 0) {
+    return `<svg width="${width}" height="${height}">
+              <text x="50%" y="50%" text-anchor="middle" fill="gray">Sem dados</text>
+            </svg>`;
+  }
+
   const margin = {top: 20, right: 30, bottom: 30, left: 40};
   const x0 = margin.left, y0 = height - margin.bottom;
   const x1 = width - margin.right, y1 = margin.top;
 
-  const xs = i => map(i, 0, data.length-1, x0, x1);
-  const maxY = Math.max(...data.map(d => Math.max(d.revenue, d.sales, d.expectedRevenue))) * 1.15;
-  const ys = v => map(v, 0, maxY, y0, y1);
+  const xs = i => data.length === 1
+    ? (x0+x1)/2
+    : scaleMap(i, 0, data.length-1, x0, x1);
+
+  const maxY = Math.max(...data.map(d => Math.max(d.revenue, d.sales, d.expectedRevenue))) * 1.15 || 1;
+  const ys = v => scaleMap(v, 0, maxY, y0, y1);
 
   const barWidth = (x1 - x0) / data.length * 0.6;
 
-  // Barras animadas (revenue)
+  // Barras animadas
   const bars = data.map((d,i) => `
     <rect x="${xs(i)-barWidth/2}" y="${y0}" width="${barWidth}" height="0" fill="#6c5ce7">
       <animate attributeName="y" from="${y0}" to="${ys(d.revenue)}" dur="0.8s" fill="freeze"/>
@@ -364,11 +377,12 @@ function AnimatedGraph({ data, width=700, height=400 }) {
   const lineSales = `<path d="${linePath('sales')}" fill="none" stroke="green" stroke-width="2"/>`;
   const lineExpected = `<path d="${linePath('expectedRevenue')}" fill="none" stroke="red" stroke-width="2" stroke-dasharray="6 4"/>`;
 
-  // Eixos (simples)
+  // Eixo X
   const xAxis = data.map((d,i) => `
     <text x="${xs(i)}" y="${y0+20}" text-anchor="middle" font-size="12">${d.month}</text>
   `).join('');
 
+  // Eixo Y
   const yTicks = 5;
   const yAxis = Array.from({length:yTicks+1}, (_,i)=>{
     const v = i*maxY/yTicks;
@@ -386,14 +400,14 @@ function AnimatedGraph({ data, width=700, height=400 }) {
   `;
 }
 
-// Listener Firebase
+// ---- Listener Firebase ----
 onValue(ref(db, "produto"), snapshot => {
   const produtos = [];
   snapshot.forEach(child => {
     produtos.push(child.val());
   });
 
-  const graphData = groupByMonth(produtos);
+  const graphData = groupByMonth(produtos) || [];
 
   document.getElementById("graph").innerHTML = AnimatedGraph({ data: graphData });
 });
