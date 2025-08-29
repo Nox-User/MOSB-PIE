@@ -1,32 +1,4 @@
 
-    // FireBase
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
-  import { getDatabase, ref, onValue, push, set } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyD53Q57GFkGSYH1p5mAfsxZIGBKnp8AEG8",
-    authDomain: "ferramentaria-d120f.firebaseapp.com",
-    databaseURL: "https://ferramentaria-d120f-default-rtdb.firebaseio.com",
-    projectId: "ferramentaria-d120f",
-    storageBucket: "ferramentaria-d120f.firebasestorage.app",
-    messagingSenderId: "227336233826",
-    appId: "1:227336233826:web:0fa15161281a6d896a823b",
-    measurementId: "G-2EVDBKX8S6"
-  };
-
-  // Inicializa Firebase
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-
-// ======== helpers ========
-
-// Evita conflito com Array.map
-const scaleMap = (value, inMin, inMax, outMin, outMax) => {
-  if (inMax === inMin) return (outMin + outMax) / 2; // evita divisão por zero
-  return (value - inMin) * (outMax - outMin) / (inMax - inMin) + outMin;
-};
-
-
   // Data Atual
   const now = new Date();
 
@@ -36,9 +8,7 @@ const scaleMap = (value, inMin, inMax, outMin, outMax) => {
   const $ = (sel, ctx=document) => ctx.querySelector(sel);
   const $$ = (sel, ctx=document) => Array.from(ctx.querySelectorAll(sel));
   const clsx = (...parts) => parts.filter(Boolean).join(' ');
-
-  //const map = (value, sMin, sMax, dMin, dMax) => dMin + ((value - sMin) / (sMax - sMin)) * (dMax - dMin);
-
+  const map = (value, sMin, sMax, dMin, dMax) => dMin + ((value - sMin) / (sMax - sMin)) * (dMax - dMin);
   function animateValue({from=0, to=1, duration=800, onUpdate, easing=(t)=>t, onComplete}){
     const start = performance.now();
     function frame(now){
@@ -50,48 +20,17 @@ const scaleMap = (value, inMin, inMax, outMin, outMax) => {
     requestAnimationFrame(frame);
   }
 
-// Busca os dados no nó "ppaps" (exemplo de estrutura)
-
-let statusdata = [];
-
-const statusRef = ref(db, "produtos");
-
-onValue(statusRef, (snapshot) => {
-  if (snapshot.exists()) {
-    const data = snapshot.val();
-
-    // Contadores por status
-    let naoIniciado = 0;
-    let emAndamento = 0;
-    let finalizado = 0;
-
-    Object.values(data).forEach(produto => {
-      switch (produto.STATUS) {
-        case "NÃO INICIADO":
-          naoIniciado++;
-          break;
-        case "EM ANDAMENTO":
-          emAndamento++;
-          break;
-        case "FINALIZADO":
-          finalizado++;
-          break;
-      }
-    });
-
-    statusdata = [
-      { id: 1, name: 'NÃO INICIADO', position: "Quantidade de PPAP's não iniciados", transactions: naoIniciado, rise: true, tasksCompleted: 3, imgId: 0 },
-      { id: 2, name: 'EM ANDAMENTO', position: "Quantidade de PPAP's em andamento", transactions: emAndamento, rise: true, tasksCompleted: 5, imgId: 2 },
-      { id: 3, name: 'FINALIZADO', position: "Quantidade de PPAP's finalizados", transactions: finalizado, rise: true, tasksCompleted: 1, imgId: 3 },
-    ];
-  }
-});
-
-  const Countrydata = [
-    { name: 'USA', rise: true, value: 21942.83, id: 1 },
-    { name: 'Ireland', rise: false, value: 19710.0, id: 2 },
-    { name: 'Ukraine', rise: false, value: 12320.3, id: 3 },
-    { name: 'Sweden', rise: true, value: 9725.0, id: 4 },
+  // ======== dados ========
+  const statusdata = [
+    { id: 1, name: 'NÃO INICIADO', position: "Quantidade de PPAP's não iniciados", transactions: 6, rise: true, tasksCompleted: 3, imgId: 0 },
+    { id: 2, name: 'EM ANDAMENTO', position: "Quantidade de PPAP's em andamento", transactions: 2, rise: true, tasksCompleted: 5, imgId: 2 },
+    { id: 3, name: 'FINALIZADO', position: "Quantidade de PPAP's finalizados", transactions: 59, rise: true, tasksCompleted: 1, imgId: 3 },
+  ];
+  const clientdata = [
+    { name: 'Caterpillar', rise: true, value: 42, id: 1 },
+    { name: 'Komatsu', rise: false, value: 34, id: 2 },
+    { name: 'John Deere', rise: false, value: 32, id: 3 },
+    { name: 'Volvo', rise: true, value: 20, id: 4 },
   ];
   const segmentationData = [
     { c1: 'Usinagem', c2: '25', c3: '#363636', color: '#535353' },
@@ -99,38 +38,53 @@ onValue(statusRef, (snapshot) => {
     { c1: 'Chanfro', c2: '10', c3: '#2c365d', color: '#232942' },
     { c1: 'Solda', c2: '3', c3: '#334ed8', color: '#2c3051' },
   ];
-  const months = ['Jan','Feb','Mar','Abr','Mai','Jun','Jul','Ago','Set'];
-  const graphData = months.map((m)=>{
-  const revenue = 500 + Math.random()*2000;
-  const expectedRevenue = Math.max(revenue + (Math.random()-0.5)*2000, 0);
-    return { name:m, revenue, expectedRevenue, sales: Math.floor(Math.random()*500) };
+  const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+
+// ========= Gráfico ========
+function agruparProdutosPorMes(produtos) {
+  const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+  const resultado = meses.map((m) => ({
+    name: m,
+    produtos: 0,
+    finalizados: 0,
+    meta: 43
+  }));
+
+  produtos.forEach(p => {
+    const data = p["SHIP DATE"];
+    if (!data) return;
+
+    const partes = data.split("/"); // deve ser ["18","01","2024"]
+    if (partes.length < 2) return;
+
+    const mes = parseInt(partes[1], 10);
+    if (isNaN(mes) || mes < 1 || mes > 12) return; // ignora datas inválidas
+
+    const indiceMes = mes - 1;
+
+    resultado[indiceMes].produtos += 1;
+    if (p.STATUS && p.STATUS.toUpperCase() === "FINALIZADO") {
+      resultado[indiceMes].finalizados += 1;
+    }
+  });
+
+  return resultado;
+}
+
+let graphData = [];
+
+fetch("../../json/produto.json") // precisa estar na mesma pasta
+  .then(res => res.json())
+  .then(produtosJson => {
+    graphData = agruparProdutosPorMes(produtosJson);
+    console.log("Dados do gráfico:", graphData);
+    // inicia a aplicação só depois dos dados carregados
+    App();
   });
 
   // ======== montagem ========
-  
-// Agrupar produtos por mês
-function groupByMonth(products) {
-  const months = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
-  let grouped = {};
-
-  products.forEach(p => {
-    if (!p.shipDate) return; // protege contra dados sem data
-    let date = new Date(p.shipDate);
-    if (isNaN(date)) return; // protege contra data inválida
-    let m = months[date.getMonth()];
-    if (!grouped[m]) {
-      grouped[m] = { revenue: 0, sales: 0, expectedRevenue: 43 };
-    }
-    grouped[m].revenue += 1; // total por mês
-    if (p.status === "finalizado") grouped[m].sales += 1;
-  });
-
-  return Object.keys(grouped).scaleMap(m => ({
-    month: m,
-    ...grouped[m]
-  }));
-}
-
   function App(){
     const root = document.getElementById('root');
     root.innerHTML = `
@@ -279,7 +233,6 @@ function groupByMonth(products) {
   }
   
   // ======== Conteúdo principal ========
-  
   function Content({ mount }){
     mount.innerHTML = `
       <div class="w-full sm:flex p-2 mt-4 items-end">
@@ -298,119 +251,42 @@ function groupByMonth(products) {
         <div class="w-full sm:w-56 mt-4 sm:mt-0 relative">
           ${Icon({path:'res-react-dash-search', className:'w-5 h-5 search-icon left-3 absolute', asHtml:true})}
           <form action="#" method="POST">
-            <input type="text" class="pl-12 py-2 pr-2 block w-full rounded-lg border-gray-300 bg-card" placeholder="Buscar"/>
+            <input type="text" class="pl-12 py-2 pr-2 block w-full rounded-lg border-gray-300 bg-card-content" placeholder="Buscar"/>
           </form>
         </div>
       </div>
       <div id="cards" class="flex flex-wrap w-full"></div>
       <div class="w-full p-2 lg:w-2/3">
-        <div class="rounded-lg bg-card sm:h-80 h-60 p-0" id="graph"></div>
+        <div class="rounded-lg bg-card-content sm:h-80 h-60 p-0" id="graph"></div>
       </div>
       <div class="w-full p-2 lg:w-1/3">
-        <div class="rounded-lg bg-card h-80 p-4" id="topCountries"></div>
+        <div class="rounded-lg bg-card-content h-80 p-4" id="clientes"></div>
       </div>
       <div class="w-full p-2 lg:w-1/3">
-        <div class="rounded-lg bg-card h-80" id="segmentation"></div>
+        <div class="rounded-lg bg-card-content h-80" id="segmentation"></div>
       </div>
       <div class="w-full p-2 lg:w-1/3">
-        <div class="rounded-lg bg-card h-80" id="satisfaction"></div>
+        <div class="rounded-lg bg-card-content h-80" id="satisfaction"></div>
       </div>
       <div class="w-full p-2 lg:w-1/3">
-        <div class="rounded-lg bg-card overflow-hidden h-80" id="addComponent"></div>
+        <div class="rounded-lg bg-card-content overflow-hidden h-80" id="addComponent"></div>
       </div>`;
 
-    // Cards
-    const cards = document.getElementById('cards');
-    if(cards){
-      cards.innerHTML = ''; // limpa antes
-      statusdata.forEach(e => cards.appendChild(NameCard(e)));
-    }
-
+    // Cards de pessoas
+    //const cards = $('#cards', mount);
+    statusdata.forEach(e=> cards.appendChild(NameCard(e)) );
     // Gráfico
-    //fetchGraphData(graphArray => {
-      AnimatedGraph($('#graph'), graphData);
-    //});
-
+    Graph($('#graph', mount));
+    // Países
+    Clientes($('#clientes', mount));
     // Segmentação
     Segmentation($('#segmentation', mount));
-
     // Satisfação
     Satisfaction($('#satisfaction', mount));
-
     // Add component
     //AddComponent($('#addComponent', mount));
     
   }
-
-// ---- Gráfico animado ----
-function AnimatedGraph({ data, width=700, height=400 }) {
-  if (!Array.isArray(data) || data.length === 0) {
-    return `<svg width="${width}" height="${height}">
-              <text x="50%" y="50%" text-anchor="middle" fill="gray">Sem dados</text>
-            </svg>`;
-  }
-
-  const margin = {top: 20, right: 30, bottom: 30, left: 40};
-  const x0 = margin.left, y0 = height - margin.bottom;
-  const x1 = width - margin.right, y1 = margin.top;
-
-  const xs = i => data.length === 1
-    ? (x0+x1)/2
-    : scaleMap(i, 0, data.length-1, x0, x1);
-
-  const maxY = Math.max(...data.scaleMap(d => Math.max(d.revenue, d.sales, d.expectedRevenue))) * 1.15 || 1;
-  const ys = v => scaleMap(v, 0, maxY, y0, y1);
-
-  const barWidth = (x1 - x0) / data.length * 0.6;
-
-  // Barras animadas
-  const bars = data.scaleMap((d,i) => `
-    <rect x="${xs(i)-barWidth/2}" y="${y0}" width="${barWidth}" height="0" fill="#6c5ce7">
-      <animate attributeName="y" from="${y0}" to="${ys(d.revenue)}" dur="0.8s" fill="freeze"/>
-      <animate attributeName="height" from="0" to="${y0-ys(d.revenue)}" dur="0.8s" fill="freeze"/>
-    </rect>
-  `).join('');
-
-  // Linhas
-  const linePath = key => data.scaleMap((d,i)=>`${i?'L':'M'}${xs(i)} ${ys(d[key])}`).join(' ');
-
-  const lineSales = `<path d="${linePath('sales')}" fill="none" stroke="green" stroke-width="2"/>`;
-  const lineExpected = `<path d="${linePath('expectedRevenue')}" fill="none" stroke="red" stroke-width="2" stroke-dasharray="6 4"/>`;
-
-  // Eixo X
-  const xAxis = data.scaleMap((d,i) => `
-    <text x="${xs(i)}" y="${y0+20}" text-anchor="middle" font-size="12">${d.month}</text>
-  `).join('');
-
-  // Eixo Y
-  const yTicks = 5;
-  const yAxis = Array.from({length:yTicks+1}, (_,i)=>{
-    const v = i*maxY/yTicks;
-    return `<text x="${x0-5}" y="${ys(v)+4}" text-anchor="end" font-size="10">${Math.round(v)}</text>`;
-  }).join('');
-
-  return `
-    <svg width="${width}" height="${height}">
-      ${bars}
-      ${lineSales}
-      ${lineExpected}
-      ${xAxis}
-      ${yAxis}
-    </svg>
-  `;
-}
-
-// ---- Listener Firebase ----
-onValue(ref(db, "produto"), snapshot => {
-  const produtos = [];
-  snapshot.forEach(child => {
-    produtos.push(child.val());
-  });
-
-  const graphData = groupByMonth(produtos) || [];
-
-  document.getElementById("graph").innerHTML = AnimatedGraph({ data: graphData });
-});
 
   function NameCard({id, name, position, transactions, rise, tasksCompleted, imgId}){
     const wrap = document.createElement('div');
@@ -433,7 +309,7 @@ onValue(ref(db, "produto"), snapshot => {
     }
 
     wrap.innerHTML = `
-      <div class="rounded-lg bg-card flex justify-between p-3 h-32">
+      <div class="rounded-lg bg-card-content flex justify-between p-3 h-32">
         <div>
           <div class="flex items-center">
             ${statusIcon}
@@ -476,85 +352,118 @@ onValue(ref(db, "produto"), snapshot => {
   }
 
   // ======== Gráfico SVG responsivo (linhas) ========
-  function Graph(mount){
-    mount.innerHTML = `
-      <div class="flex p-4 h-full flex-col">
-        <div>
-          <div class="flex items-center">
-            <div class="font-bold text-white">Sumário mensal</div>
-            <div class="flex-grow"></div>
-            ${Icon({path:'res-react-dash-graph-range', className:'w-4 h-4', asHtml:true})}
-            <div class="ml-2">No mês de: ${month}</div>
-            <div class="ml-6 w-5 h-5 flex justify-center items-center rounded-full icon-background">?</div>
-          </div>
-          <div class="font-bold ml-5">Jan - Set</div>
+function Graph(mount){
+  mount.innerHTML = `
+    <div class="flex p-4 h-full flex-col">
+    <div className="w-full h-80 p-4 bg-white rounded-2xl shadow-md"> 
+      <div>
+        <div class="flex items-center">
+          <div class="font-bold text-black">Sumário mensal</div>
+          <div class="flex-grow"></div>
+          <div class="ml-2">No mês de: ${month}</div>
         </div>
-        <div class="flex-grow">
-          <div class="w-full h-full" id="svgWrap" style="min-height:12rem"></div>
-        </div>
-      </div>`;
+        <div class="ml-5">Jan - Dez</div>
+      </div>
+      <div class="flex-grow">
+        <div class="w-full h-full" id="svgWrap" style="min-height:260px"></div>
+      </div>
+    </div>`;
 
-    const svgWrap = $('#svgWrap', mount);
-    function renderSvg(){
-      const w = svgWrap.clientWidth || 600;
-      const h = svgWrap.clientHeight || 260;
-      const pad = {l:48, r:16, t:10, b:28};
-      const x0 = pad.l, x1 = w - pad.r, y0 = h - pad.b, y1 = pad.t;
-      const xs = (i)=> scaleMap(i, 0, graphData.length-1, x0, x1);
-      const maxY = Math.max(...graphData.scaleMap(d=>Math.max(d.revenue,d.expectedRevenue)))*1.15;
-      const ys = (v)=> scaleMap(v, 0, maxY, y0, y1);
-      const path = (key)=> graphData.scaleMap((d,i)=> `${i? 'L':'M'} ${xs(i)} ${ys(d[key])}`).join(' ');
-      const xTicks = graphData.scaleMap((d,i)=>({x: xs(i), label:d.name}));
+  const svgWrap = $('#svgWrap', mount);
 
-      svgWrap.innerHTML = `
-        <svg viewBox="0 0 ${w} ${h}" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="paint0_linear" x1="0" y1="0" x2="1" y2="0">
-              <stop stop-color="#6B8DE3"/>
-              <stop offset="1" stop-color="#7D1C8D"/>
-            </linearGradient>
-          </defs>
-          <!-- grid vertical -->
-          ${xTicks.scaleMap(t=>`<line x1="${t.x}" x2="${t.x}" y1="${y1}" y2="${y0}" stroke="#252525" stroke-width="6"/>`).join('')}
-          <!-- eixo X labels -->
-          ${xTicks.scaleMap(t=>`<text x="${t.x}" y="${h-8}" text-anchor="middle" font-size="12" fill="#9aa1b2">${t.label}</text>`).join('')}
-          <!-- linhas -->
-          <path d="${path('expectedRevenue')}" fill="none" stroke="#242424" stroke-width="3" class="stroke-dash"/>
-          <path id="rev" d="${path('revenue')}" fill="none" stroke="url(#paint0_linear)" stroke-width="4"/>
-        </svg>`;
-      // anima desenhando o caminho principal
-      const p = $('#rev', svgWrap);
-      const len = p.getTotalLength();
-      p.style.strokeDasharray = len;
-      p.style.strokeDashoffset = len;
-      p.getBoundingClientRect();
-      animateValue({from:len,to:0,duration:1200,onUpdate:(v)=>{ p.style.strokeDashoffset = v; }});
-    }
-    // primeira render e redimensionamento
-    renderSvg();
-    const ro = new ResizeObserver(renderSvg); ro.observe(svgWrap);
+  function renderSvg(){
+    const w = svgWrap.clientWidth || 600;
+    const h = svgWrap.clientHeight || 260;
+    const pad = {l:48, r:16, t:10, b:28};
+    const x0 = pad.l, x1 = w - pad.r, y0 = h - pad.b, y1 = pad.t;
+
+    const xs = (i)=> map(i, 0, graphData.length-1, x0, x1);
+    const maxY = Math.max(1, ...graphData.map(d=>Math.max(d.produtos,d.finalizados,d.meta))) * 1.2;
+    const ys = (v)=> map(v, 0, maxY, y0, y1);
+
+    const xTicks = graphData.map((d,i)=>({x: xs(i), label:d.name}));
+
+    const pathFinalizados = graphData.map((d,i)=> `${i? 'L':'M'} ${xs(i)} ${ys(d.finalizados)}`).join(' ');
+    const pathMeta = graphData.map((d,i)=> `${i? 'L':'M'} ${xs(i)} ${ys(d.meta)}`).join(' ');
+
+    svgWrap.style.position = "relative"; // garante que o tooltip posicione certo
+
+    svgWrap.innerHTML = `
+      <svg viewBox="0 0 ${w} ${h}" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+        <!-- grid vertical -->
+        ${xTicks.map(t=>`<line x1="${t.x}" x2="${t.x}" y1="${y1}" y2="${y0}" stroke="#252525" stroke-width="6"/>`).join('')}
+        <!-- eixo X labels -->
+        ${xTicks.map(t=>`<text x="${t.x}" y="${y0 + 16}" text-anchor="middle" font-size="12" fill="#000000ff">${t.label}</text>`).join('')}
+        
+        <!-- Barras -->
+        ${graphData.map((d,i)=>`
+          <rect x="${xs(i)-10}" y="${ys(d.produtos)}" width="20" height="${y0 - ys(d.produtos)}" fill="#4d75dbff"
+            data-type="Produtos" data-label="${d.name}" data-value="${d.produtos}"/>
+        `).join('')}
+        
+        <!-- Linha finalizados -->
+        <path d="${pathFinalizados}" fill="none" stroke="#ff9100ff" stroke-width="3"/>
+        
+        <!-- Linha meta fixa -->
+        <path d="${pathMeta}" fill="none" stroke="#ff0000ff" stroke-dasharray="6,3" stroke-width="2"/>
+        </svg>
+        <div id="tooltip" style="
+          position:absolute;
+          pointer-events:none;
+          background:#333;
+          color:#fff;
+          text-align:center;
+          padding:4px 8px;
+          border-radius:6px;
+          font-size:12px;
+          display:none;
+          z-index:10;
+          white-space:nowrap;
+        "></div>
+      `;
+
+      const svg = svgWrap.querySelector("svg");
+      const tooltip = svgWrap.querySelector("#tooltip");
+
+      // ativa tooltip só nas barras (sem pontos visíveis)
+      svg.querySelectorAll("rect").forEach(el=>{
+        el.addEventListener("mousemove", e=>{
+          const {type,label,value} = el.dataset;
+          tooltip.style.display = "block";
+          tooltip.style.left = (e.offsetX + 15) + "px";
+          tooltip.style.top = (e.offsetY - 30) + "px";
+          tooltip.innerHTML = `<b>${label}</b><br>${type}: ${value}`;
+        });
+        el.addEventListener("mouseleave", ()=>{
+          tooltip.style.display = "none";
+        });
+    });
   }
 
-  function TopCountries(mount){
+  renderSvg();
+  const ro = new ResizeObserver(renderSvg); ro.observe(svgWrap);
+}
+
+
+  function Clientes(mount){
     mount.innerHTML = `
       <div class="flex justify-between items-center">
-        <div class="text-white font-bold">Top Countries</div>
+        <div class="text-black font-bold">Clientes:</div>
         ${Icon({path:'res-react-dash-plus', className:'w-5 h-5', asHtml:true})}
       </div>
-      <div class="text-sm text-gray-400">favourites</div>
+      <div class="text-sm text-gray-400">Quantidade por mês:</div>
       <div id="rows"></div>
       <div class="flex-grow"></div>
-      <div class="flex justify-center"><div>Check All</div></div>`;
+      <div class="flex justify-center"><div>Ver todos</div></div>`;
     const rows = $('#rows', mount);
-    Countrydata.forEach(({name,rise,value,id})=>{
+    clientdata.forEach(({name,rise,value,id})=>{
       const row = document.createElement('div');
       row.className='flex items-center mt-3';
       row.innerHTML = `
         <div>${id}</div>
-        <img src="https://assets.codepen.io/3685267/res-react-dash-flag-${id}.svg" class="ml-2 w-6 h-6"/>
         <div class="ml-2">${name}</div>
         <div class="flex-grow"></div>
-        <div>$${value.toLocaleString()}</div>
+        <div>${value.toLocaleString()}</div>
         <img src="https://assets.codepen.io/3685267/${rise? 'res-react-dash-country-up':'res-react-dash-country-down'}.svg" class="w-4 h-4 mx-3"/>
         <img src="https://assets.codepen.io/3685267/res-react-dash-options.svg" class="w-2 h-2"/>
       `;
@@ -566,7 +475,7 @@ onValue(ref(db, "produto"), snapshot => {
     mount.innerHTML = `
       <div class="p-4 h-full">
         <div class="flex justify-between items-center">
-          <div class="text-white font-bold">Segmentation</div>
+          <div class="text-black font-bold">Outros dados:</div>
           <img src="https://assets.codepen.io/3685267/res-react-dash-options.svg" class="w-2 h-2"/>
         </div>
         <div class="mt-3">Por processo:</div>
@@ -599,10 +508,10 @@ onValue(ref(db, "produto"), snapshot => {
     mount.innerHTML = `
       <div class="p-4 h-full">
         <div class="flex justify-between items-center">
-          <div class="text-white font-bold">Satisfication</div>
+          <div class="text-Black font-bold">Dados Gerais:</div>
           <img src="https://assets.codepen.io/3685267/res-react-dash-options.svg" class="w-2 h-2"/>
         </div>
-        <div class="mt-3">Conclusão Geral:</div>
+        <div class="mt-3">Finalizão:</div>
         <div class="flex justify-center"><svg viewBox="0 0 700 380" fill="none" width="300" xmlns="http://www.w3.org/2000/svg">
           <path d="M100 350C100 283.696 126.339 220.107 173.223 173.223C220.107 126.339 283.696 100 350 100C416.304 100 479.893 126.339 526.777 173.223C573.661 220.107 600 283.696 600 350" stroke="#2d2d2d" stroke-width="40" stroke-linecap="round"/>
           <path id="satPath" d="M100 350C100 283.696 126.339 220.107 173.223 173.223C220.107 126.339 283.696 100 350 100C416.304 100 479.893 126.339 526.777 173.223C573.661 220.107 600 283.696 600 350" stroke="#2f49d0" stroke-width="40" stroke-linecap="round" stroke-dasharray="785.4" stroke-dashoffset="785.4"/>
@@ -625,8 +534,8 @@ onValue(ref(db, "produto"), snapshot => {
     animateValue({from:785.4, to:78.54, duration:1500, easing:(t)=>1-Math.pow(1-t,3), onUpdate:(v)=>{
       path.setAttribute('stroke-dashoffset', String(v));
       const pi = Math.PI; const tau = 2*pi;
-      const cx = 350 + 250 * Math.cos(scaleMap(v, 785.4, 0, pi, tau));
-      const cy = 350 + 250 * Math.sin(scaleMap(v, 785.4, 0, pi, tau));
+      const cx = 350 + 250 * Math.cos(map(v, 785.4, 0, pi, tau));
+      const cy = 350 + 250 * Math.sin(map(v, 785.4, 0, pi, tau));
       dot.setAttribute('cx', String(cx));
       dot.setAttribute('cy', String(cy));
     }});
