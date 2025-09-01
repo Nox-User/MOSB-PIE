@@ -75,7 +75,7 @@ function agruparProdutosPorMes(produtos, anos) {
 }
 
 // Importar configuração do Firebase
-import { firebaseService } from './firebase-config.js';
+import { firebaseService } from 'https://nox-user.github.io/MOSB-PIE/firebase-config.js';
 
 let produtosanuais = [];
 let graphData = [];
