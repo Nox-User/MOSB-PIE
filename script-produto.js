@@ -434,7 +434,7 @@ function Graph(mount){
       <div class="flex items-center justify-between">
         <!-- Título + Legenda -->
         <div class="flex items-center gap-4">
-          <div class="font-bold text-black ml-2">SUMÁRIO DE AMOSTRAS (KPI)</div>
+          <div class="font-bold text-black ml-1">SUMÁRIO DE AMOSTRAS (KPI)</div>
           <!-- Legenda -->
           <div class="flex items-center gap-4">
             <div class="flex items-center gap-1">
@@ -621,10 +621,10 @@ function Graph(mount){
 
 function gerarSegmentationData(produtos) {
   const processos = [
-    {nome: "USINAGEM", cor: "#9b0f0fff"},
-    {nome: "DOBRA", cor: "#0033ffff"},
-    {nome: "CHANFRO", cor: "#217211ff"},
-    {nome: "SOLDA", cor: "#5c0f5fff"},
+    {nome: "USINAGEM", cor: "#156912ff"},
+    {nome: "DOBRA", cor: "#0526adff"},
+    {nome: "CHANFRO", cor: "#b40b0bff"},
+    {nome: "SOLDA", cor: "#5b0b6bff"},
   ];
 
   const resultado = processos.map(p => ({...p, itens: []}));
@@ -953,53 +953,36 @@ function ProdutosPage(mount){
   let produtos = [...produtosanuais]; // cópia local
   let filtroTexto = "";
 
-  // Captura clientes únicos para popular select
-  const clientesUnicos = [...new Set(produtos.map(p => p.CLIENTE).filter(Boolean))];
-  const selectCliente = $('#filtroCliente', mount);
-  clientesUnicos.forEach(c => {
-    const opt = document.createElement("option");
-    opt.value = c;
-    opt.textContent = c;
-    selectCliente.appendChild(opt);
-  });
-
-  // Eventos dos filtros
-  ['#filtroProdutos','#filtroCliente','#filtroProcesso','#filtroDataInicio','#filtroDataFim']
-    .forEach(sel => {
-      $(sel, mount).addEventListener("input", renderTabela);
-      $(sel, mount).addEventListener("change", renderTabela);
-    });
-
   mount.innerHTML = `
     <div class="p-6 w-full">
       <h2 class="text-2xl font-bold mb-4">GERENCIAMENTO DE PRODUTOS</h2>
 
-      <!-- Barra de ações -->
-      <!-- Barra de filtros -->
-      <div class="flex flex-wrap items-center mb-4 gap-4">
-        <!-- Texto -->
-        <input type="text" id="filtroProdutos" placeholder="Pesquisar..." 
-          class="border rounded px-3 py-2 flex-grow"/>
+    <!-- Barra de filtros -->
+    <div class="flex flex-wrap items-center mb-4 gap-4">
+      <!-- Texto -->
+      <input type="text" id="filtroProdutos" placeholder="Pesquisar..." 
+        class="border rounded px-3 py-2 flex-grow"/>
 
-        <!-- Cliente -->
-        <select id="filtroCliente" class="border px-3 py-2 rounded">
-          <option value="">Todos os Clientes</option>
-        </select>
+      <!-- Cliente -->
+      <select id="filtroCliente" class="border px-3 py-2 rounded">
+        <option value="">Todos os Clientes</option>
+      </select>
 
-        <!-- Processo -->
-        <select id="filtroProcesso" class="border px-3 py-2 rounded">
-          <option value="">Todos os Processos</option>
-          <option value="USINAGEM">USINAGEM</option>
-          <option value="DOBRA">DOBRA</option>
-          <option value="CHANFRO">CHANFRO</option>
-          <option value="SOLDA">SOLDA</option>
-        </select>
+      <!-- Processo -->
+      <select id="filtroProcesso" class="border px-3 py-2 rounded">
+        <option value="">Todos os Processos</option>
+        <option value="USINAGEM">USINAGEM</option>
+        <option value="DOBRA">DOBRA</option>
+        <option value="CHANFRO">CHANFRO</option>
+        <option value="SOLDA">SOLDA</option>
+      </select>
 
-        <!-- Data inicial -->
-        <input type="date" id="filtroDataInicio" class="border rounded px-3 py-2"/>
+      <!-- Data inicial -->
+      <input type="date" id="filtroDataInicio" class="border rounded px-3 py-2"/>
 
-        <button id="btnNovoProduto" class="bg-green-600 text-white px-4 py-2 rounded">+ Novo Produto</button>
-      </div>
+      <button id="btnNovoProduto" class="bg-green-600 text-white px-4 py-2 rounded">+ Novo Produto</button>
+    </div>
+
 
       <!-- Tabela -->
       <div class="overflow-auto border rounded-lg">
@@ -1022,73 +1005,58 @@ function ProdutosPage(mount){
 
   const tabela = $('#tabelaProdutos', mount);
 
+  function renderTabela() {
+    tabela.innerHTML = "";
 
-  function renderStatusBadge(status) {
-    const s = (status || "").toUpperCase();
-    let cor = "bg-gray-400 text-white";
-    if (s.includes("FINALIZADO")) cor = "bg-green-500 text-white";
-    else if (s.includes("ANDAMENTO")) cor = "bg-blue-500 text-white";
-    else if (s.includes("NÃO INICIADO") || s.includes("NAO INICIADO")) cor = "bg-gray-500 text-white";
-    else cor = "bg-red-500 text-white"; // status desconhecido
+    const texto = filtroTexto.toLowerCase();
+    const clienteSelecionado = $('#filtroCliente').value;
+    const processoSelecionado = $('#filtroProcesso').value;
+    const dataInicio = $('#filtroDataInicio').value;
 
-    return `<span class="px-2 py-1 rounded text-xs font-bold ${cor}">${status}</span>`;
-  }
+    const filtrados = produtos.filter(p => {
+      // 🔸 1. Filtro por texto
+      const txt = Object.values(p).join(" ").toLowerCase();
+      if (texto && !txt.includes(texto)) return false;
 
+      // 🔸 2. Filtro por cliente
+      if (clienteSelecionado && p.CLIENTE !== clienteSelecionado) return false;
 
+      // 🔸 3. Filtro por processo (verifica no STATUS)
+      if (processoSelecionado && !(p.STATUS || "").toUpperCase().includes(processoSelecionado)) return false;
 
-    function renderTabela() {
-      tabela.innerHTML = "";
+      // 🔸 4. Filtro por intervalo de datas
+      const data = p["ENTRADA"] || p["SHIP DATE"];
+      if (data) {
+        const [dia, mes, ano] = data.split("/");
+        const dataProduto = new Date(`${ano}-${mes}-${dia}`);
 
-      const texto = filtroTexto.toLowerCase();
-      const clienteSelecionado = $('#filtroCliente').value;
-      const processoSelecionado = $('#filtroProcesso').value;
-      const dataInicio = $('#filtroDataInicio').value;
-
-      const filtrados = produtos.filter(p => {
-        // 🔸 1. Filtro por texto
-        const txt = Object.values(p).join(" ").toLowerCase();
-        if (texto && !txt.includes(texto)) return false;
-
-        // 🔸 2. Filtro por cliente
-        if (clienteSelecionado && p.CLIENTE !== clienteSelecionado) return false;
-
-        // 🔸 3. Filtro por processo (verifica no STATUS)
-        if (processoSelecionado && !(p.STATUS || "").toUpperCase().includes(processoSelecionado)) return false;
-
-        // 🔸 4. Filtro por intervalo de datas
-        const data = p["ENTRADA"] || p["SHIP DATE"];
-        if (data) {
-          const [dia, mes, ano] = data.split("/");
-          const dataProduto = new Date(`${ano}-${mes}-${dia}`);
-
-          if (dataInicio) {
-            const inicio = new Date(dataInicio);
-            if (dataProduto < inicio) return false;
-          }
+        if (dataInicio) {
+          const inicio = new Date(dataInicio);
+          if (dataProduto < inicio) return false;
         }
+      }
+      return true;
+    });
 
-        return true;
-      });
+    // Renderiza os produtos filtrados
+    filtrados.forEach((p, idx) => {
+      const tr = document.createElement("tr");
+      tr.className = "border-b hover:bg-gray-50";
+      tr.innerHTML = `
+        <td class="p-2">${p["PART NUMBER"] || ""}</td>
+        <td class="p-2">${p["CLIENTE"] || ""}</td>
+        <td class="p-2">${p["ENTRADA"] || ""}</td>
+        <td class="p-2">${p["SHIP DATE"] || ""}</td>
+        <td class="p-2">${renderStatusBadge(p["STATUS"])}</td>
+        <td class="p-2">
+          <button class="bg-blue-500 text-white px-2 py-1 rounded text-sm editarProduto">Editar</button>
+        </td>
+      `;
+      tabela.appendChild(tr);
 
-      // Renderiza os produtos filtrados
-      filtrados.forEach((p, idx) => {
-        const tr = document.createElement("tr");
-        tr.className = "border-b hover:bg-gray-50";
-        tr.innerHTML = `
-          <td class="p-2">${p["PART NUMBER"] || ""}</td>
-          <td class="p-2">${p["CLIENTE"] || ""}</td>
-          <td class="p-2">${p["ENTRADA"] || ""}</td>
-          <td class="p-2">${p["SHIP DATE"] || ""}</td>
-          <td class="p-2">${renderStatusBadge(p["STATUS"])}</td>
-          <td class="p-2">
-            <button class="bg-blue-500 text-white px-2 py-1 rounded text-sm editarStatus">Editar</button>
-          </td>
-        `;
-        tabela.appendChild(tr);
-
-        tr.querySelector(".editarStatus").addEventListener("click", () => editarStatus(idx));
-      });
-    }
+      tr.querySelector(".editarProduto").addEventListener("click", () => editarProduto(idx));
+    });
+  }
 
 
   // filtro em tempo real
@@ -1104,51 +1072,18 @@ function ProdutosPage(mount){
 
   renderTabela();
 
+  function renderStatusBadge(status) {
+  const s = (status || "").toUpperCase();
+  let cor = "bg-gray-400 text-white";
+  if (s.includes("FINALIZADO")) cor = "bg-green-500 text-white";
+  else if (s.includes("ANDAMENTO")) cor = "bg-blue-500 text-white";
+  else if (s.includes("NÃO INICIADO") || s.includes("NAO INICIADO")) cor = "bg-gray-500 text-white";
+  else cor = "bg-red-500 text-white"; // status desconhecido
+
+  return `<span class="px-2 py-1 rounded text-xs font-bold ${cor}">${status}</span>`;
+}
+
   // ==== Funções auxiliares ====
-  function editarStatus(idx) {
-    const produto = produtos[idx];
-
-    let modal = document.getElementById("modal-editar-status");
-    if (!modal) {
-      modal = document.createElement("div");
-      modal.id = "modal-editar-status";
-      modal.className = "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50";
-      document.body.appendChild(modal);
-    }
-
-    modal.innerHTML = `
-      <div class="bg-white rounded-lg shadow-lg p-6 w-1/3">
-        <h3 class="text-lg font-bold mb-4">Editar Status - ${produto["PART NUMBER"]}</h3>
-        <select id="selectNovoStatus" class="border px-3 py-2 rounded w-full">
-          <option value="NÃO INICIADO">NÃO INICIADO</option>
-          <option value="EM ANDAMENTO">EM ANDAMENTO</option>
-          <option value="FINALIZADO">FINALIZADO</option>
-        </select>
-        <div class="flex justify-end mt-4 gap-2">
-          <button id="cancelarEditar" class="bg-gray-500 text-white px-4 py-2 rounded">Cancelar</button>
-          <button id="salvarEditar" class="bg-blue-600 text-white px-4 py-2 rounded">Salvar</button>
-        </div>
-      </div>
-    `;
-
-    // seleciona o valor atual
-    modal.querySelector("#selectNovoStatus").value = produto.STATUS || "";
-
-    modal.querySelector("#cancelarEditar").addEventListener("click", ()=> modal.remove());
-    modal.querySelector("#salvarEditar").addEventListener("click", async ()=>{
-      const novoStatus = modal.querySelector("#selectNovoStatus").value;
-      if (produto.id) {
-        await firebaseService.updateProduto(produto.id, { STATUS: novoStatus });
-        produtos[idx].STATUS = novoStatus;
-        const produtoGlobal = produtosanuais.find(p => p.id === produto.id);
-        if (produtoGlobal) produtoGlobal.STATUS = novoStatus;
-        renderTabela();
-        modal.remove();
-      }
-    });
-  }
-
-
   function abrirModalNovoProduto(){
     let modal = document.getElementById("modal-novo-produto");
     if (!modal) {
@@ -1221,6 +1156,102 @@ function ProdutosPage(mount){
       }
     });
   }
+
+  function editarProduto(idx) {
+    const produto = produtos[idx];
+
+    let modal = document.getElementById("modal-editar-produto");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "modal-editar-produto";
+      modal.className = "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50";
+      document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = `
+      <div class="bg-white rounded-lg shadow-lg p-6 w-1/2">
+        <h3 class="text-lg font-bold mb-4">Editar Produto</h3>
+        <div class="grid grid-cols-2 gap-4">
+          <input type="text" id="editPart" value="${produto["PART NUMBER"] || ""}" placeholder="Part Number" class="border px-3 py-2 rounded"/>
+          
+          <select id="editCliente" class="border px-3 py-2 rounded">
+            <option value="">Selecione o Cliente</option>
+            <option value="VOLVO">VOLVO</option>
+            <option value="KOMATSU">KOMATSU</option>
+            <option value="JOHN DEERE">JOHN DEERE</option>
+          </select>
+          
+          <input type="text" id="editEntrada" value="${produto["ENTRADA"] || ""}" placeholder="Data Entrada (dd/mm/yyyy)" class="border px-3 py-2 rounded"/>
+          <input type="text" id="editShip" value="${produto["SHIP DATE"] || ""}" placeholder="Ship Date" class="border px-3 py-2 rounded"/>
+          
+          <select id="editStatus" class="border px-3 py-2 rounded col-span-2">
+            <option value="">Selecione o Status</option>
+            <option value="NÃO INICIADO">NÃO INICIADO</option>
+            <option value="EM ANDAMENTO">EM ANDAMENTO</option>
+            <option value="FINALIZADO">FINALIZADO</option>
+          </select>
+        </div>
+        <div class="flex justify-end mt-4 gap-2">
+          <button id="cancelarEditar" class="bg-gray-500 text-white px-4 py-2 rounded">Cancelar</button>
+          <button id="salvarEditar" class="bg-blue-600 text-white px-4 py-2 rounded">Salvar</button>
+        </div>
+      </div>
+    `;
+
+    // seleciona valores atuais
+    modal.querySelector("#editCliente").value = produto["CLIENTE"] || "";
+    modal.querySelector("#editStatus").value = produto["STATUS"] || "";
+
+    // cancelar
+    modal.querySelector("#cancelarEditar").addEventListener("click", () => modal.remove());
+
+    // salvar
+    modal.querySelector("#salvarEditar").addEventListener("click", async () => {
+      const atualizado = {
+        "PART NUMBER": $("#editPart", modal).value,
+        "CLIENTE": $("#editCliente", modal).value,
+        "ENTRADA": $("#editEntrada", modal).value,
+        "SHIP DATE": $("#editShip", modal).value,
+        "STATUS": $("#editStatus", modal).value,
+      };
+
+      try {
+        if (produto.id) {
+          await firebaseService.updateProduto(produto.id, atualizado);
+        }
+        // Atualiza local
+        produtos[idx] = { ...produto, ...atualizado };
+        const globalIdx = produtosanuais.findIndex(p => p.id === produto.id);
+        if (globalIdx >= 0) produtosanuais[globalIdx] = { ...produtosanuais[globalIdx], ...atualizado };
+
+        modal.remove();
+        renderTabela();
+        alert("Produto atualizado com sucesso!");
+      } catch (error) {
+        console.error("Erro ao atualizar produto:", error);
+        alert("Erro ao atualizar produto.");
+      }
+    });
+  }
+
+
+    // Captura clientes únicos para popular select
+  const clientesUnicos = [...new Set(produtos.map(p => p.CLIENTE).filter(Boolean))];
+  const selectCliente = $('#filtroCliente', mount);
+  clientesUnicos.forEach(c => {
+    const opt = document.createElement("option");
+    opt.value = c;
+    opt.textContent = c;
+    selectCliente.appendChild(opt);
+  });
+
+  // Eventos dos filtros
+  ['#filtroProdutos','#filtroCliente','#filtroProcesso','#filtroDataInicio','#filtroDataFim']
+    .forEach(sel => {
+      $(sel, mount).addEventListener("input", renderTabela);
+      $(sel, mount).addEventListener("change", renderTabela);
+    });
+
 }
 
 
