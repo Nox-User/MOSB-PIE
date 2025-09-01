@@ -2,7 +2,9 @@
   // Data Atual
   const now = new Date();
 
-  const month = now.toLocaleString('default', { month: 'long' }).toUpperCase(); 
+  const month = "AGOSTO";//now.toLocaleString('default', { month: 'long' }).toUpperCase();
+  const monthnumber = 8;//now.getMonth() + 1;
+  const year = now.getFullYear(); 
   const day = now.getDate();
 
   const $ = (sel, ctx=document) => ctx.querySelector(sel);
@@ -21,11 +23,6 @@
   }
 
   // ======== dados ========
-  const statusdata = [
-    { id: 1, name: 'NÃO INICIADO', position: "Quantidade de PPAP's não iniciados", transactions: 6, rise: true, tasksCompleted: 3, imgId: 0 },
-    { id: 2, name: 'EM ANDAMENTO', position: "Quantidade de PPAP's em andamento", transactions: 2, rise: true, tasksCompleted: 5, imgId: 2 },
-    { id: 3, name: 'FINALIZADO', position: "Quantidade de PPAP's finalizados", transactions: 59, rise: true, tasksCompleted: 1, imgId: 3 },
-  ];
   const clientdata = [
     { name: 'Caterpillar', rise: true, value: 42, id: 1 },
     { name: 'Komatsu', rise: false, value: 34, id: 2 },
@@ -42,7 +39,7 @@
 
 
 // ========= Gráfico ========
-function agruparProdutosPorMes(produtos) {
+function agruparProdutosPorMes(produtos, anos) {
   const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
   const resultado = meses.map((m) => ({
@@ -53,14 +50,18 @@ function agruparProdutosPorMes(produtos) {
   }));
 
   produtos.forEach(p => {
-    const data = p["SHIP DATE"];
+    const data = p["ENTRADA"];
     if (!data) return;
 
     const partes = data.split("/"); // deve ser ["18","01","2024"]
     if (partes.length < 2) return;
 
+    const dia = parseInt(partes[0], 10);
     const mes = parseInt(partes[1], 10);
+    const ano = parseInt(partes[2], 10);
+
     if (isNaN(mes) || mes < 1 || mes > 12) return; // ignora datas inválidas
+    if (anos && ano !== anos) return;
 
     const indiceMes = mes - 1;
 
@@ -73,16 +74,107 @@ function agruparProdutosPorMes(produtos) {
   return resultado;
 }
 
-let graphData = [];
+// Importar configuração do Firebase
+import { firebaseService } from './firebase-config.js';
 
-fetch("../../json/produto.json") // precisa estar na mesma pasta
-  .then(res => res.json())
-  .then(produtosJson => {
-    graphData = agruparProdutosPorMes(produtosJson);
+let produtosanuais = [];
+let graphData = [];
+let statusData = [];
+
+// Função para carregar dados do Firebase
+async function carregarDadosFirebase() {
+  try {
+    console.log("Carregando dados do Firebase...");
+    produtosanuais = await firebaseService.getProdutos();
+    console.log("Produtos carregados do Firebase:", produtosanuais);
+    
+    graphData = agruparProdutosPorMes(produtosanuais);
     console.log("Dados do gráfico:", graphData);
+    
+    statusData = gerarStatusData(produtosanuais, year, month);
+    console.log("Dados do Card:", statusData);
+    
     // inicia a aplicação só depois dos dados carregados
     App();
+    bindAnoFiltro();
+  } catch (error) {
+    console.error("Erro ao carregar dados do Firebase:", error);
+    alert("Erro ao carregar dados do Firebase. Verifique a configuração.");
+  }
+}
+
+// Inicializar carregamento dos dados
+carregarDadosFirebase();
+
+function bindAnoFiltro(){
+  const select = document.getElementById("anos");
+  if (!select) return;
+  select.addEventListener("change", () => {
+    const ano = select.value ? parseInt(select.value, 10) : null;
+    graphData = agruparProdutosPorMes(produtosanuais, ano);
+    Graph(document.getElementById("graph"));  
+    AddComponent(document.getElementById("addComponent"), ano);
+    Clientes(document.getElementById("clientes"), ano);
+    Satisfaction(document.getElementById("satisfaction"), ano);
   });
+}  
+
+function gerarStatusData(produtos, year) {
+  const statusBase = [
+    { id: 1, name: 'NÃO INICIADO', position: "Quantidade de PPAP's não iniciados"},
+    { id: 2, name: 'EM ANDAMENTO', position: "Quantidade de PPAP's em andamento"},
+    { id: 3, name: 'FINALIZADO', position: "Quantidade de PPAP's finalizados"},
+  ];
+
+  const contagem = {
+    "NÃO INICIADO": 0,
+    "EM ANDAMENTO": 0,
+    "FINALIZADO": 0
+  };
+
+    // função auxiliar → remove acentos e padroniza
+  function normalizarStatus(status) {
+    return status
+      .toUpperCase()
+      .normalize("NFD")                 // separa acentos
+      .replace(/[\u0300-\u036f]/g, "") // remove acentos
+      .trim();
+  }
+
+  // mapeia diferentes formas para o mesmo status
+  function mapearStatus(status) {
+    const s = normalizarStatus(status);
+    if (s === "NAO INICIADO") return "NÃO INICIADO";
+    if (s === "EM DESENVOLVIMENTO"  || s === "PROCESSO DE DOBRA" || 
+        s === "PROCESSO DE CHANFRO" || s === "PROCESSO DE SOLDA" || s === "PROCESSO DE USINAGEM") return "EM ANDAMENTO";
+    if (s === "FINALIZADO") return "FINALIZADO";
+    return null;
+  }
+
+  produtos.forEach(p => {
+    const data = p["ENTRADA"];
+    if (!data) return;
+
+    const partes = data.split("/");
+    if (partes.length < 3) return;
+    const mes = parseInt(partes[1], 10);
+    const ano = parseInt(partes[2], 10);
+
+    if (year && ano !== year) return;
+    if (monthnumber && mes !== monthnumber) return;
+
+    const status = mapearStatus(p.STATUS || "");
+    if (status && contagem.hasOwnProperty(status)) {
+      contagem[status] += 1;
+    }
+  });
+
+  return statusBase.map(s => ({
+    ...s,
+    transactions: contagem[s.name] || 0,
+    rise: true
+  }));
+}
 
   // ======== montagem ========
   function App(){
@@ -121,7 +213,7 @@ fetch("../../json/produto.json") // precisa estar na mesma pasta
       mount.innerHTML = `
         <div class="flex-shrink-0 overflow-hidden p-2 mt-12">
           <div class="flex items-center h-full sm:justify-center xl:justify-start p-2 sidebar-separator-top">
-            ${IconButton({icon:'res-react-dash-logo', className:'w-10 h-10', asHtml:true})}
+            ${IconButton({icon:'res-react-dash-logo', className:'w-20 h-10', asHtml:true})}
             <div class="block sm:hidden xl:block ml-2 font-bold text-xl text-black">PRODUTOS</div>
             <div class="flex-grow sm:hidden xl:block"></div>
             ${IconButton({icon:'res-react-dash-sidebar-close', className:'block sm:hidden', asHtml:true, onclick:'__onSidebarHide()'})}
@@ -146,6 +238,16 @@ fetch("../../json/produto.json") // precisa estar na mesma pasta
         el.addEventListener('click', ()=>{
           selected = el.dataset.id;
           render();
+
+          const content = document.getElementById("content");
+
+          if (selected === '1') {
+            // carrega a página de produtos
+            ProdutosPage(content);
+          } else {
+            // carrega o dashboard normal
+            Content({ mount: content });
+          }
         });
       });
     }
@@ -223,7 +325,7 @@ fetch("../../json/produto.json") // precisa estar na mesma pasta
     return asHtml? html: (()=>{ const img=new Image(); img.src=`https://assets.codepen.io/3685267/${path}.svg`; img.className=className; return img; })();
   }
   function IconButton({icon='options', className='w-4 h-4', onclick, asHtml=false}){
-    const html = `<button ${onclick?`onclick=\"${onclick}\"`:''} type="button" class="${className}"><img src="https://assets.codepen.io/3685267/${icon}.svg" class="w-full h-full"/></button>`;
+    const html = `<button ${onclick?`onclick=\"${onclick}\"`:''} type="button" class="${className}"><img src="../../assets/icons/Mosb-Black-bgWhite.jpg" class="w-full h-full"/></button>`;
     return asHtml? html: (()=>{ const btn=document.createElement('button'); btn.type='button'; btn.className=className; btn.innerHTML=`<img src="https://assets.codepen.io/3685267/${icon}.svg" class="w-full h-full"/>`; if(onclick) btn.setAttribute('onclick', onclick); return btn; })();
   }
   
@@ -236,31 +338,13 @@ fetch("../../json/produto.json") // precisa estar na mesma pasta
   function Content({ mount }){
     mount.innerHTML = `
       <div class="w-full sm:flex p-2 mt-4 items-end">
-        <div class="sm:flex-grow flex justify-between w-full">
-          <div>
-            <div class="flex items-center">
-              <div class="text-3xl font-bold text-black">Bem vindo, usuario</div>
-            </div>
-            <div class="flex items-center text-sm text-gray-400">
-              ${Icon({path:'res-react-dash-date-indicator', className:'w-3 h-3', asHtml:true})}
-              <div class="ml-2">${month} ${day}</div>
-            </div>
-          </div>
-          ${IconButton({icon:'res-react-dash-sidebar-open', className:'block sm:hidden', onclick:'__onSidebarOpen()', asHtml:true})}
-        </div>
-        <div class="w-full sm:w-56 mt-4 sm:mt-0 relative">
-          ${Icon({path:'res-react-dash-search', className:'w-5 h-5 search-icon left-3 absolute', asHtml:true})}
-          <form action="#" method="POST">
-            <input type="text" class="pl-12 py-2 pr-2 block w-full rounded-lg border-gray-300 bg-card-content" placeholder="Buscar"/>
-          </form>
-        </div>
       </div>
       <div id="cards" class="flex flex-wrap w-full"></div>
       <div class="w-full p-2 lg:w-2/3">
         <div class="rounded-lg bg-card-content sm:h-80 h-60 p-0" id="graph"></div>
       </div>
       <div class="w-full p-2 lg:w-1/3">
-        <div class="rounded-lg bg-card-content h-80 p-4" id="clientes"></div>
+        <div class="rounded-lg bg-card-content overflow-hidden h-80" id="addComponent"></div>
       </div>
       <div class="w-full p-2 lg:w-1/3">
         <div class="rounded-lg bg-card-content h-80" id="segmentation"></div>
@@ -269,297 +353,782 @@ fetch("../../json/produto.json") // precisa estar na mesma pasta
         <div class="rounded-lg bg-card-content h-80" id="satisfaction"></div>
       </div>
       <div class="w-full p-2 lg:w-1/3">
-        <div class="rounded-lg bg-card-content overflow-hidden h-80" id="addComponent"></div>
+        <div class="rounded-lg bg-card-content h-80 p-4" id="clientes"></div>
       </div>`;
 
     // Cards de pessoas
-    //const cards = $('#cards', mount);
-    statusdata.forEach(e=> cards.appendChild(NameCard(e)) );
+    const cards = $('#cards', mount);
+    statusData.forEach(e=> cards.appendChild(statusCard(e)) );
     // Gráfico
     Graph($('#graph', mount));
-    // Países
-    Clientes($('#clientes', mount));
+    // Cliente
+    Clientes($('#clientes', mount), year);
     // Segmentação
     Segmentation($('#segmentation', mount));
     // Satisfação
-    Satisfaction($('#satisfaction', mount));
+    Satisfaction($('#satisfaction', mount), year);
     // Add component
-    //AddComponent($('#addComponent', mount));
+    AddComponent($('#addComponent', mount), year);
     
   }
 
-  function NameCard({id, name, position, transactions, rise, tasksCompleted, imgId}){
+  function statusCard({id, name, position, transactions, rise}){
     const wrap = document.createElement('div');
     wrap.className='w-full p-2 lg:w-1/3';
 
-    let statusIcon = '';
+    let statusIcon = [];
       
     switch(id){
-      case 1:
-          statusIcon = '<i class="fi fi-bs-cross"></i>';
+      case 1: // X
+          statusIcon = '<i class="fi fi-bs-cross animate-draw-x"></i>';
           break;
-      case 2:
-          statusIcon = '<i class="fi fi-bs-refresh"></i>';
+      case 2: // refresh
+          statusIcon = '<i class="fi fi-bs-refresh animate-refresh"></i>';
           break;
-      case 3:
-          statusIcon = '<i class="fi fi-bs-check"></i>';
+      case 3: // check
+          statusIcon = '<i class="fi fi-bs-check animate-draw-check"></i>';
           break;
       default:
           statusIcon = '<i class="fa fa-question-circle"></i>';
     }
 
     wrap.innerHTML = `
-      <div class="rounded-lg bg-card-content flex justify-between p-3 h-32">
+      <div class="rounded-lg bg-card-content flex justify-between items-center p-3 h-32">
         <div>
           <div class="flex items-center">
-            ${statusIcon}
             <div class="ml-2">
               <div class="flex items-center">
                 <div class="mr-2 font-bold text-black">${name}</div>
-                ${Icon({path:'res-react-dash-tick', asHtml:true})}
+                ${statusIcon}
               </div>
               <div class="text-sm text-gray-400">${position}</div>
             </div>
           </div>
-          <div class="text-sm mt-2">${tasksCompleted} de 5 tarefas completas</div>
-          <svg class="w-44 mt-3" height="6" viewBox="0 0 200 6" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="200" height="6" rx="3" fill="#2D2D2D" />
-            <rect id="bar" width="0" height="6" rx="3" fill="url(#paint0_linear)" />
-            <rect x="38" width="2" height="6" fill="#171717" />
-            <rect x="78" width="2" height="6" fill="#171717" />
-            <rect x="118" width="2" height="6" fill="#171717" />
-            <rect x="158" width="2" height="6" fill="#171717" />
-            <defs>
-              <linearGradient id="paint0_linear" x1="0" y1="0" x2="1" y2="0">
-                <stop stop-color="#8E76EF" />
-                <stop offset="1" stop-color="#3912D2" />
-              </linearGradient>
-            </defs>
-          </svg>
         </div>
         <div class="flex flex-col items-center">
           ${Icon({path: rise? 'res-react-dash-bull':'res-react-dash-bear', className:'w-8 h-8', asHtml:true})}
-          <div class="font-bold text-lg ${rise? 'text-green-500':'text-red-500'}" id="money">0.00</div>
+          <div class="font-bold text-lg ${rise? 'text-green-500':'text-red-500'}" id="product"></div>
           <div class="text-sm text-gray-400">No mês de: ${month}</div>
         </div>
       </div>`;
+      
     // animações
-    const bar = $('#bar', wrap);
-    const money = $('#money', wrap);
-    animateValue({ from:0, to:transactions, duration:900, onUpdate:(v)=>{ money.textContent = `${v.toFixed(0)}`; }});
-    animateValue({ from:0, to:(tasksCompleted/5)*200, duration:900, onUpdate:(w)=>{ bar.setAttribute('width', String(w)); }});
+    const product = $('#product', wrap);
+    animateValue({ from:0, to:transactions, duration:900, onUpdate:(v)=>{ product.textContent = `${v.toFixed(0)}`; }});
+
     return wrap;
   }
 
   // ======== Gráfico SVG responsivo (linhas) ========
 function Graph(mount){
+
+  // guarda valor selecionado (se existir)
+  const selectAntigo = document.getElementById("anos");
+  const valorSelecionado = selectAntigo ? selectAntigo.value : "";
+
   mount.innerHTML = `
-    <div class="flex p-4 h-full flex-col">
+    <div class="flex p-1 h-full flex-col">
     <div className="w-full h-80 p-4 bg-white rounded-2xl shadow-md"> 
+
       <div>
-        <div class="flex items-center">
-          <div class="font-bold text-black">Sumário mensal</div>
-          <div class="flex-grow"></div>
-          <div class="ml-2">No mês de: ${month}</div>
+      <div class="flex items-center justify-between">
+        <!-- Título + Legenda -->
+        <div class="flex items-center gap-4">
+          <div class="font-bold text-black ml-2">SUMÁRIO DE AMOSTRAS (KPI)</div>
+          <!-- Legenda -->
+          <div class="flex items-center gap-4">
+            <div class="flex items-center gap-1">
+              <span class="w-3 h-3 rounded-full" style="background-color:#4472C4"></span>
+              <span class="text-sm text-black">TOTAL</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <span class="w-3 h-3 rounded-full" style="background-color:#ED7D31"></span>
+              <span class="text-sm text-black">FINALIZADO</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <span class="w-3 h-3 rounded-full" style="background-color:#ff0000"></span>
+              <span class="text-sm text-black">META</span>
+            </div>
+          </div>
         </div>
-        <div class="ml-5">Jan - Dez</div>
+        <!-- Filtro de ano à direita -->
+        <div class="ml-2">
+          <label for="anos">Filtrar por </label>
+          <select id="anos" class="border p-2 rounded">
+            <option value="">Todos</option>
+            <option value="2023">2023</option>
+            <option value="2024">2024</option>
+            <option value="2025">2025</option>
+          </select>
+        </div>
       </div>
+
+        <div class="ml-2">Gráfico de Desenvolvimento Mensal:</div>
+      </div>
+
       <div class="flex-grow">
         <div class="w-full h-full" id="svgWrap" style="min-height:260px"></div>
       </div>
     </div>`;
 
+  // restaura o valor do filtro
+  const selectNovo = document.getElementById("anos");
+  if (valorSelecionado !== "") {
+    selectNovo.value = valorSelecionado;
+  }
+
   const svgWrap = $('#svgWrap', mount);
 
   function renderSvg(){
-    const w = svgWrap.clientWidth || 600;
-    const h = svgWrap.clientHeight || 260;
-    const pad = {l:48, r:16, t:10, b:28};
+    const w = svgWrap.offsetWidth || 600;
+    const h = svgWrap.offsetHeight || 260;
+    const pad = {l:40, r:40, t:10, b:50};
     const x0 = pad.l, x1 = w - pad.r, y0 = h - pad.b, y1 = pad.t;
 
     const xs = (i)=> map(i, 0, graphData.length-1, x0, x1);
-    const maxY = Math.max(1, ...graphData.map(d=>Math.max(d.produtos,d.finalizados,d.meta))) * 1.2;
+    const maxY = Math.max(1, ...graphData.map(d=>Math.max(d.produtos,d.finalizados,d.meta))) * 1.12;
     const ys = (v)=> map(v, 0, maxY, y0, y1);
 
     const xTicks = graphData.map((d,i)=>({x: xs(i), label:d.name}));
 
-    const pathFinalizados = graphData.map((d,i)=> `${i? 'L':'M'} ${xs(i)} ${ys(d.finalizados)}`).join(' ');
-    const pathMeta = graphData.map((d,i)=> `${i? 'L':'M'} ${xs(i)} ${ys(d.meta)}`).join(' ');
+    // cria ticks no eixo Y (ex: 5 divisões)
+    const nYTicks = 5;
+    const yTicks = [];
+    for(let i=0;i<=nYTicks;i++){
+      const v = (maxY/nYTicks) * i;
+      yTicks.push({y: ys(v), label: Math.round(v)});
+    }
+
+    function getSmoothPath(data, xs, ys, suavização = 0.5) {
+      if (!data.length) return '';
+      let d = `M ${xs(0)} ${ys(data[0])}`;
+      for (let i = 1; i < data.length; i++) {
+        const x0 = xs(i-1), y0 = ys(data[i-1]);
+        const x1 = xs(i), y1 = ys(data[i]);
+        const cx = (x0 + x1) * suavização;
+        d += ` C ${cx} ${y0}, ${cx} ${y1}, ${x1} ${y1}`;
+      }
+      return d;
+    }
+
+    const pathFinalizados = getSmoothPath(graphData.map(d=>d.finalizados), xs, ys);
+    const pathMeta = getSmoothPath(graphData.map(d=>d.meta), xs, ys);
+
+    const pointsFinalizados = graphData.map((d,i)=>`
+      <circle cx="${xs(i)}" cy="${ys(d.finalizados)}" r="6" fill="transparent" class="point"
+        data-type="PPAP's Finalizados" data-label="${d.name}" data-value="${d.finalizados}" />
+    `).join('');
+
+    const pointsMeta = graphData.map((d,i)=>`
+      <circle cx="${xs(i)}" cy="${ys(d.meta)}" r="6" fill="transparent" class="point"
+        data-type="Meta" data-label="${d.name}" data-value="${d.meta}" />
+    `).join('');
 
     svgWrap.style.position = "relative"; // garante que o tooltip posicione certo
 
     svgWrap.innerHTML = `
       <svg viewBox="0 0 ${w} ${h}" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
         <!-- grid vertical -->
-        ${xTicks.map(t=>`<line x1="${t.x}" x2="${t.x}" y1="${y1}" y2="${y0}" stroke="#252525" stroke-width="6"/>`).join('')}
+        ${xTicks.map(t=>`<line x1="${t.x}" x2="${t.x}" y1="${y1}" y2="${y0}" stroke="#ffffffff" stroke-width="6"/>`).join('')}
+        <!-- grid horizontal -->
+        ${yTicks.map(t=>`<line x1="${x0}" x2="${x1}" y1="${t.y}" y2="${t.y}" stroke="#a5a5a5ff" stroke-width="0,5"/>`).join('')}
         <!-- eixo X labels -->
-        ${xTicks.map(t=>`<text x="${t.x}" y="${y0 + 16}" text-anchor="middle" font-size="12" fill="#000000ff">${t.label}</text>`).join('')}
+        ${xTicks.map(t=>`<text x="${t.x}" y="${y0 + 20}" text-anchor="middle" font-size="12" fill="#000000ff">${t.label}</text>`).join('')}
         
         <!-- Barras -->
         ${graphData.map((d,i)=>`
-          <rect x="${xs(i)-10}" y="${ys(d.produtos)}" width="20" height="${y0 - ys(d.produtos)}" fill="#4d75dbff"
-            data-type="Produtos" data-label="${d.name}" data-value="${d.produtos}"/>
+          <rect x="${xs(i)-10}" y="${ys(d.produtos)}" width="20" height="${y0 - ys(d.produtos)}" fill="#4472C4"
+            data-type="PPAP's Total" data-label="${d.name}" data-value="${d.produtos}"/>
         `).join('')}
         
         <!-- Linha finalizados -->
-        <path d="${pathFinalizados}" fill="none" stroke="#ff9100ff" stroke-width="3"/>
-        
+        <path d="${pathFinalizados}" fill="none" stroke="#ED7D31" stroke-width="3"/>
+        ${pointsFinalizados}
+
         <!-- Linha meta fixa -->
         <path d="${pathMeta}" fill="none" stroke="#ff0000ff" stroke-dasharray="6,3" stroke-width="2"/>
+        ${pointsMeta}  
+
         </svg>
-        <div id="tooltip" style="
-          position:absolute;
-          pointer-events:none;
-          background:#333;
-          color:#fff;
-          text-align:center;
-          padding:4px 8px;
-          border-radius:6px;
-          font-size:12px;
-          display:none;
-          z-index:10;
-          white-space:nowrap;
-        "></div>
+        <!-- Tooltip customizado -->
+        <div id="tooltip" style="position:absolute; pointer-events:none; display:none; z-index:10; white-space:nowrap;">
+          <div class="rounded-xl overflow-hidden bg-gray-800 shadow-lg">
+            <div class="tooltip-body text-center p-3">
+              <div class="text-white font-bold text-sm" id="tooltip-value">$0</div>
+              <div class="text-gray-300 text-xs" id="tooltip-label">Detalhe</div>
+            </div>
+          </div>
+        </div>
       `;
 
       const svg = svgWrap.querySelector("svg");
       const tooltip = svgWrap.querySelector("#tooltip");
 
       // ativa tooltip só nas barras (sem pontos visíveis)
-      svg.querySelectorAll("rect").forEach(el=>{
-        el.addEventListener("mousemove", e=>{
-          const {type,label,value} = el.dataset;
-          tooltip.style.display = "block";
-          tooltip.style.left = (e.offsetX + 15) + "px";
-          tooltip.style.top = (e.offsetY - 30) + "px";
-          tooltip.innerHTML = `<b>${label}</b><br>${type}: ${value}`;
-        });
-        el.addEventListener("mouseleave", ()=>{
-          tooltip.style.display = "none";
-        });
-    });
+      const points = svg.querySelectorAll("circle.point");
+      const bars = svg.querySelectorAll("rect");
+
+      // Apenas os pontos ficam visíveis ao passar o mouse
+      svg.addEventListener("mousemove", e => {
+          let nearest = null;
+          let minDist = Infinity;
+          points.forEach(pt => {
+              const cx = parseFloat(pt.getAttribute("cx"));
+              const cy = parseFloat(pt.getAttribute("cy"));
+              const dx = e.offsetX - cx;
+              const dy = e.offsetY - cy;
+              const dist = Math.sqrt(dx*dx + dy*dy);
+              if (dist < minDist) {
+                  minDist = dist;
+                  nearest = pt;
+              }
+              pt.setAttribute("fill", "transparent"); // reset todos pontos
+          });
+
+          if (nearest && minDist < 20) { // só trava se o mouse estiver próximo
+              nearest.setAttribute("fill", "#ff8800ff"); // ponto visível
+              tooltip.style.display = "block";
+              tooltip.style.left = (parseFloat(nearest.getAttribute("cx")) + 15) + "px";
+              tooltip.style.top = (parseFloat(nearest.getAttribute("cy")) - 30) + "px";
+              tooltip.querySelector("#tooltip-value").innerText = nearest.dataset.value;
+              tooltip.querySelector("#tooltip-label").innerText = `${nearest.dataset.type} em ${nearest.dataset.label}`;
+          } else {
+              tooltip.style.display = "none";
+          }
+      });
+
+      // As barras mantêm a cor original
+      bars.forEach(bar => {
+          bar.addEventListener("mousemove", e => {
+              e.stopPropagation(); // importante! impede que o SVG trate o mouse
+              tooltip.style.display = "block";
+              tooltip.style.left = (e.offsetX + 15) + "px";
+              tooltip.style.top = (e.offsetY - 30) + "px";
+              tooltip.querySelector("#tooltip-value").innerText = bar.dataset.value;
+              tooltip.querySelector("#tooltip-label").innerText = `${bar.dataset.type} em ${bar.dataset.label}`;
+          });
+          bar.addEventListener("mouseleave", e => {
+              tooltip.style.display = "none";
+          });
+      });
   }
 
   renderSvg();
-  const ro = new ResizeObserver(renderSvg); ro.observe(svgWrap);
+  bindAnoFiltro();
+  const ro = new ResizeObserver(renderSvg);
+  ro.observe(mount);   // << mudar aqui
+}
+
+function gerarSegmentationData(produtos) {
+  const processos = [
+    {nome: "USINAGEM", cor: "#9b0f0fff"},
+    {nome: "DOBRA", cor: "#0033ffff"},
+    {nome: "CHANFRO", cor: "#217211ff"},
+    {nome: "SOLDA", cor: "#5c0f5fff"},
+  ];
+
+  const resultado = processos.map(p => ({...p, itens: []}));
+
+  produtos.forEach(p => {
+    const status = (p.STATUS || "").toUpperCase().trim();
+    const partNumber = p["PART NUMBER"] || "N/A";
+    const shipDate = p["SHIP DATE"] || "N/A";
+
+    resultado.forEach(proc => {
+      if (status.includes(proc.nome)) {
+        proc.itens.push({ partNumber, shipDate });
+      }
+    });
+  });
+
+  return resultado.map(proc => ({
+    processo: proc.nome,
+    quantidade: proc.itens.length,
+    cor: proc.cor,
+    itens: proc.itens
+  }));
 }
 
 
-  function Clientes(mount){
-    mount.innerHTML = `
+function Segmentation(mount){
+  const dados = gerarSegmentationData(produtosanuais);
+
+  mount.innerHTML = `
+    <div class="p-4 h-full">
       <div class="flex justify-between items-center">
-        <div class="text-black font-bold">Clientes:</div>
-        ${Icon({path:'res-react-dash-plus', className:'w-5 h-5', asHtml:true})}
-      </div>
-      <div class="text-sm text-gray-400">Quantidade por mês:</div>
-      <div id="rows"></div>
-      <div class="flex-grow"></div>
-      <div class="flex justify-center"><div>Ver todos</div></div>`;
-    const rows = $('#rows', mount);
-    clientdata.forEach(({name,rise,value,id})=>{
-      const row = document.createElement('div');
-      row.className='flex items-center mt-3';
-      row.innerHTML = `
-        <div>${id}</div>
-        <div class="ml-2">${name}</div>
-        <div class="flex-grow"></div>
-        <div>${value.toLocaleString()}</div>
-        <img src="https://assets.codepen.io/3685267/${rise? 'res-react-dash-country-up':'res-react-dash-country-down'}.svg" class="w-4 h-4 mx-3"/>
+        <div class="text-black font-bold">DADOS GERAIS:</div>
         <img src="https://assets.codepen.io/3685267/res-react-dash-options.svg" class="w-2 h-2"/>
+      </div>
+      <div class="mt-3">Amostras por Processo:</div>
+      <div id="rows"></div>
+      <!-- Botão único de detalhes -->
+      <div class="flex mt-3 px-3 items-center justify-between bg-details rounded-xl w-36 h-12 text-white cursor-pointer" id="btnDetalhes">
+        <div>Detalhes</div>
+        <img src="https://assets.codepen.io/3685267/res-react-dash-chevron-right.svg" class="w-4 h-4"/>
+      </div>
+    </div>`;
+
+  const rows = $('#rows', mount);
+  dados.forEach(({processo, quantidade, cor})=>{
+    const row = document.createElement('div');
+    row.className='flex items-center mt-2';
+    row.innerHTML = `
+      <div class="w-2 h-2 rounded-full" style="background:${cor}"></div>
+      <div class="ml-2" style="color:${cor}">${processo}</div>
+      <div class="flex-grow"></div>
+      <div class="font-bold" style="color:${cor}">${quantidade}</div>
+    `;
+    rows.appendChild(row);
+  });
+
+  // botão único → abre modal com todos os itens
+  $('#btnDetalhes', mount).addEventListener("click", ()=>{
+    abrirModalDetalhes(dados); // passa [{processo, quantidade, itens}, ...]
+  });
+}
+
+function abrirModalDetalhes(dadosPorProcesso){
+  let modal = document.getElementById("modal-detalhes");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "modal-detalhes";
+    modal.className = "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50";
+    document.body.appendChild(modal);
+  }
+
+  modal.innerHTML = `
+    <div class="bg-white rounded-lg shadow-lg p-6 w-4/5 max-h-[85vh] overflow-auto">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-bold">Itens Pendentes - Todos os Processos</h2>
+        <button id="fecharModal" class="bg-red-500 text-white px-3 py-1 rounded">Fechar</button>
+      </div>
+
+      <!-- Filtro -->
+      <div class="mb-4">
+        <input type="text" id="filtroItens" placeholder="Filtrar por Part Number ou Ship Date" 
+               class="w-full border rounded px-3 py-2"/>
+      </div>
+
+      <div id="conteudoProcessos"></div>
+    </div>
+  `;
+
+  // fechar modal
+  modal.querySelector("#fecharModal").addEventListener("click", ()=> modal.remove());
+
+  const conteudo = modal.querySelector("#conteudoProcessos");
+
+  // Função que monta as tabelas
+  function renderTabela(filtro=""){
+    conteudo.innerHTML = "";
+
+    dadosPorProcesso.forEach(proc=>{
+      const itensFiltrados = proc.itens.filter(i => {
+        const txt = (i.partNumber + " " + i.shipDate).toLowerCase();
+        return txt.includes(filtro.toLowerCase());
+      });
+
+      if (itensFiltrados.length === 0) return;
+
+      const secao = document.createElement("div");
+      secao.className = "mb-6";
+
+      secao.innerHTML = `
+        <h3 class="text-md font-bold mb-2">${proc.processo}</h3>
+        <table class="w-full text-left border-collapse mb-4">
+          <thead>
+            <tr class="bg-gray-200">
+              <th class="p-2">Part Number</th>
+              <th class="p-2">Ship Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itensFiltrados.map(i=>`
+              <tr class="border-b">
+                <td class="p-2">${i.partNumber}</td>
+                <td class="p-2">${i.shipDate}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
       `;
-      rows.appendChild(row);
+
+      conteudo.appendChild(secao);
     });
   }
 
-  function Segmentation(mount){
-    mount.innerHTML = `
-      <div class="p-4 h-full">
-        <div class="flex justify-between items-center">
-          <div class="text-black font-bold">Outros dados:</div>
-          <img src="https://assets.codepen.io/3685267/res-react-dash-options.svg" class="w-2 h-2"/>
-        </div>
-        <div class="mt-3">Por processo:</div>
-        <div id="rows"></div>
-        <div class="flex mt-3 px-3 items-center justify-between bg-details rounded-xl w-36 h-12 text-white">
-          <div>Detalhes</div>
-          <img src="https://assets.codepen.io/3685267/res-react-dash-chevron-right.svg" class="w-4 h-4"/>
-        </div>
-      </div>`;
-    const rows = $('#rows', mount.parentElement);
-    segmentationData.forEach(({c1,c2,c3,color})=>{
-      const row = document.createElement('div');
-      row.className='flex items-center';
-      row.innerHTML = `
-        <div class="w-2 h-2 rounded-full" style="background:${color}"></div>
-        <div class="ml-2" style="color:${color}">${c1}</div>
-        <div class="flex-grow"></div>
-        <div style="color:${color}">${c2}</div>
-        <div class="ml-2 w-12 card-stack-border"></div>
-        <div class="ml-2 h-8">
-          <div class="w-20 h-28 rounded-lg overflow-hidden" style="background:${c3}">
-            ${c1==='Other'? `<img src="https://assets.codepen.io/3685267/res-react-dash-user-card.svg"/>`:''}
-          </div>
-        </div>`;
-      rows.appendChild(row);
-    });
-  }
+  // render inicial
+  renderTabela();
 
-  function Satisfaction(mount){
-    mount.innerHTML = `
-      <div class="p-4 h-full">
-        <div class="flex justify-between items-center">
-          <div class="text-Black font-bold">Dados Gerais:</div>
-          <img src="https://assets.codepen.io/3685267/res-react-dash-options.svg" class="w-2 h-2"/>
-        </div>
-        <div class="mt-3">Finalizão:</div>
-        <div class="flex justify-center"><svg viewBox="0 0 700 380" fill="none" width="300" xmlns="http://www.w3.org/2000/svg">
-          <path d="M100 350C100 283.696 126.339 220.107 173.223 173.223C220.107 126.339 283.696 100 350 100C416.304 100 479.893 126.339 526.777 173.223C573.661 220.107 600 283.696 600 350" stroke="#2d2d2d" stroke-width="40" stroke-linecap="round"/>
-          <path id="satPath" d="M100 350C100 283.696 126.339 220.107 173.223 173.223C220.107 126.339 283.696 100 350 100C416.304 100 479.893 126.339 526.777 173.223C573.661 220.107 600 283.696 600 350" stroke="#2f49d0" stroke-width="40" stroke-linecap="round" stroke-dasharray="785.4" stroke-dashoffset="785.4"/>
-          <circle id="satDot" cx="140" cy="350" r="12" fill="#fff"/>
-        </svg></div>
-        <div class="flex justify-center">
-          <div class="flex justify-between mt-2" style="width:300px">
-            <div style="width:50px;padding-left:16px">0%</div>
-            <div style="width:150px;text-align:center">
-              <div class="font-bold" style="color:#2f49d1;font-size:18px">88,1%</div>
-              <div>Taxa de finalização</div>
-            </div>
-            <div style="width:50px">100%</div>
+  // aplicar filtro enquanto digita
+  modal.querySelector("#filtroItens").addEventListener("input", (e)=>{
+    renderTabela(e.target.value);
+  });
+}
+
+function Satisfaction(mount, anoSelecionado){
+  // filtrar produtos do mês atual e ano selecionado
+  const produtosFiltrados = produtosanuais.filter(p => {
+    const data = p["ENTRADA"];
+    if (!data) return false;
+    const partes = data.split("/");
+    if (partes.length < 3) return false;
+
+    const mes = parseInt(partes[1], 10);
+    const ano = parseInt(partes[2], 10);
+
+    if (anoSelecionado && ano !== anoSelecionado) return false;
+    if (mes !== monthnumber) return false;
+
+    return true;
+  });
+
+  // contar finalizados
+  let total = produtosFiltrados.length;
+  let finalizados = 0;
+
+  produtosFiltrados.forEach(p => {
+    const status = (p.STATUS || "").toUpperCase().trim();
+    if (status === "FINALIZADO" || status.startsWith("PROCESSO")) {
+      finalizados++;
+    }
+  });
+
+  const taxa = total > 0 ? (finalizados / total) * 100 : 0;
+
+  // render base
+  mount.innerHTML = `
+    <div class="p-4 h-full">
+      <div class="flex justify-between items-center">
+        <div class="text-Black font-bold">DADOS GERAIS:</div>
+        <img src="https://assets.codepen.io/3685267/res-react-dash-options.svg" class="w-2 h-2"/>
+      </div>
+      <div class="mt-3">Índice de Finalização de Amostras:</div>
+      <div class="flex justify-center"><svg viewBox="0 0 700 380" fill="none" width="300" xmlns="http://www.w3.org/2000/svg">
+        <path d="M100 350C100 283.696 126.339 220.107 173.223 173.223C220.107 126.339 283.696 100 350 100C416.304 100 479.893 126.339 526.777 173.223C573.661 220.107 600 283.696 600 350" stroke="#2d2d2d" stroke-width="40" stroke-linecap="round"/>
+        <path id="satPath" d="M100 350C100 283.696 126.339 220.107 173.223 173.223C220.107 126.339 283.696 100 350 100C416.304 100 479.893 126.339 526.777 173.223C573.661 220.107 600 283.696 600 350" stroke="#2f49d0" stroke-width="40" stroke-linecap="round" stroke-dasharray="785.4" stroke-dashoffset="785.4"/>
+        <circle id="satDot" cx="140" cy="350" r="12" fill="#fff"/>
+      </svg></div>
+      <div class="flex justify-center">
+        <div class="flex justify-between mt-2" style="width:300px">
+          <div style="width:50px;padding-left:16px">0%</div>
+          <div style="width:150px;text-align:center">
+            <div class="font-bold" style="color:#2f49d1;font-size:18px">${taxa.toFixed(1)}%</div>
+            <div>Taxa de finalização</div>
           </div>
+          <div style="width:50px">100%</div>
         </div>
-      </div>`;
-    // anima o arco e o ponto
-    const path = $('#satPath', mount);
-    const dot = $('#satDot', mount);
-    animateValue({from:785.4, to:78.54, duration:1500, easing:(t)=>1-Math.pow(1-t,3), onUpdate:(v)=>{
+      </div>
+    </div>`;
+
+  // anima o arco e o ponto
+  const path = $('#satPath', mount);
+  const dot = $('#satDot', mount);
+  animateValue({
+    from:785.4,
+    to:785.4 - (785.4 * (taxa/100)), // proporção da taxa
+    duration:1500,
+    easing:(t)=>1-Math.pow(1-t,3),
+    onUpdate:(v)=>{
       path.setAttribute('stroke-dashoffset', String(v));
       const pi = Math.PI; const tau = 2*pi;
       const cx = 350 + 250 * Math.cos(map(v, 785.4, 0, pi, tau));
       const cy = 350 + 250 * Math.sin(map(v, 785.4, 0, pi, tau));
       dot.setAttribute('cx', String(cx));
       dot.setAttribute('cy', String(cy));
-    }});
-  }
+    }
+  });
+}
 
-  function AddComponent(mount){
+
+  function AddComponent(mount, anoSelecionado){
+    // calcula total de produtos filtrados pelo ano
+    const dados = agruparProdutosPorMes(produtosanuais, anoSelecionado);
+    const totalProdutos = dados.reduce((soma, d) => soma + d.produtos, 0);
+
+    const totalFuncionarios = 16;
+    const ncPermitido = Math.round(totalProdutos * 0.005); // 0,5%
+    const ncReal = 2;
+
     mount.innerHTML = `
-      <div>
-        <div class="w-full h-20 add-component-head"></div>
-        <div class="flex flex-col items-center" style="transform:translate(0,-40px)">
-          <div style="background:#414455;width:80px;height:80px;border-radius:999px;overflow:hidden">
-            <img src="https://assets.codepen.io/3685267/res-react-dash-rocket.svg" class="w-full h-full"/>
-          </div>
-          <div class="text-white font-bold mt-3">No Components Created Yet</div>
-          <div class="mt-2">Simply create your first component</div>
-          <div class="mt-1">Just click on the button</div>
-          <button class="flex items-center p-3 mt-3" style="background:#2f49d1;border-radius:15px;color:white">
-            <img src="https://assets.codepen.io/3685267/res-react-dash-add-component.svg" class="w-5 h-5"/>
-            <div class="ml-2">Add Component</div>
-            <div class="ml-2" style="background:#4964ed;border-radius:15px;padding:4px 8px">129</div>
-          </button>
+      <div class="p-4 h-full flex flex-col">
+        <div class="text-black font-bold text-lg mb-4 border-b pb-2">
+          SUMÁRIO DE AMOSTRAS (KPI) (${anoSelecionado || 'Todos'})
+        </div>
+        <div class="flex-grow overflow-auto">
+          <table class="w-full text-left border-collapse rounded-lg overflow-hidden shadow">
+            <thead>
+              <tr class="bg-gray-200 text-gray-700">
+                <th class="p-3 text-sm font-semibold">INDICADOR DE DESEMPENO</th>
+                <th class="p-3 text-sm font-semibold text-right">DADOS</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-300">
+              <tr class="hover:bg-gray-50 transition">
+                <td class="p-3">TOTAL DE AMOSTRAS:</td>
+                <td class="p-3 font-bold text-blue-600 text-right">${totalProdutos}</td>
+              </tr>
+              <tr class="hover:bg-gray-50 transition">
+                <td class="p-3">NC PERMITIDO (0,5%/ANO)</td>
+                <td class="p-3 font-bold text-green-600 text-right">${ncPermitido}</td>
+              </tr>
+              <tr class="hover:bg-gray-50 transition">
+                <td class="p-3">NC ATUAIS</td>
+                <td class="p-3 font-bold ${ncReal > ncPermitido ? 'text-red-600' : 'text-green-600'} text-right">${ncReal}</td>
+              </tr>
+              <tr class="hover:bg-gray-50 transition">
+                <td class="p-3">FUNCIONÁRIOS:</td>
+                <td class="p-3 font-bold text-indigo-600 text-right">${totalFuncionarios}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>`;
   }
+
+  // ======== Clientes ========
+  
+function Clientes(mount, anoSelecionado){
+  // filtrar produtos do mês atual e ano (ou todos os anos se vazio)
+  const produtosFiltrados = produtosanuais.filter(p => {
+    const data = p["ENTRADA"];
+    if (!data) return false;
+    const partes = data.split("/");
+    if (partes.length < 3) return false;
+
+    const mes = parseInt(partes[1], 10);
+    const ano = parseInt(partes[2], 10);
+
+    if (anoSelecionado && ano !== anoSelecionado) return false;
+    if (mes !== monthnumber) return false;
+
+    return true;
+  });
+
+  // agrupar por cliente
+  const clientesMap = {};
+  produtosFiltrados.forEach(p => {
+    const cliente = p["CLIENTE"] || "Desconhecido";
+    if (!clientesMap[cliente]) clientesMap[cliente] = 0;
+    clientesMap[cliente]++;
+  });
+
+  const clientes = Object.entries(clientesMap)
+    .map(([name, value], idx) => ({
+      id: idx+1,
+      name,
+      value,
+      rise: true
+    }));
+
+  // render
+  mount.innerHTML = `
+    <div class="flex justify-between items-center">
+      <div class="text-black font-bold">DADOS GERAIS:</div>
+      <img src="https://assets.codepen.io/3685267/res-react-dash-options.svg" class="w-2 h-2"/>
+    </div>
+    <div class="mt-3">Total de Amostras por Cliente em: ${month}</div>
+    <div id="rows"></div>
+    <div class="flex-grow"></div>
+    <div class="flex justify-center"><div>Ver todos</div></div>
+  `;
+
+  const rows = $('#rows', mount);
+  clientes.forEach(({id,name,value,rise})=>{
+    const row = document.createElement('div');
+    row.className='flex items-center mt-3';
+    row.innerHTML = `
+      <div>${id}</div>
+      <div class="ml-2">${name}</div>
+      <div class="flex-grow"></div>
+      <div>${value.toLocaleString()}</div>
+      <img src="https://assets.codepen.io/3685267/${rise? 'res-react-dash-country-up':'res-react-dash-country-down'}.svg" class="w-4 h-4 mx-3"/>
+      <img src="https://assets.codepen.io/3685267/res-react-dash-options.svg" class="w-2 h-2"/>
+    `;
+    rows.appendChild(row);
+  });
+}
+
+function ProdutosPage(mount){
+  let produtos = [...produtosanuais]; // cópia local
+  let filtroTexto = "";
+
+  mount.innerHTML = `
+    <div class="p-6 w-full">
+      <h2 class="text-2xl font-bold mb-4">GERENCIAMENTO DE PRODUTOS</h2>
+
+      <!-- Barra de ações -->
+      <div class="flex items-center mb-4 gap-4">
+        <input type="text" id="filtroProdutos" placeholder="Pesquisar produtos..." 
+          class="border rounded px-3 py-2 flex-grow"/>
+        <button id="btnNovoProduto" class="bg-green-600 text-white px-4 py-2 rounded">+ Novo Produto</button>
+      </div>
+
+      <!-- Tabela -->
+      <div class="overflow-auto border rounded-lg">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-gray-200 text-gray-700">
+              <th class="p-3">Part Number</th>
+              <th class="p-3">Cliente</th>
+              <th class="p-3">Entrada</th>
+              <th class="p-3">Ship Date</th>
+              <th class="p-3">Status</th>
+              <th class="p-3">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="tabelaProdutos"></tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  const tabela = $('#tabelaProdutos', mount);
+
+  function renderTabela(){
+    tabela.innerHTML = "";
+    const filtrados = produtos.filter(p => {
+      const txt = Object.values(p).join(" ").toLowerCase();
+      return txt.includes(filtroTexto.toLowerCase());
+    });
+
+    filtrados.forEach((p, idx)=>{
+      const tr = document.createElement("tr");
+      tr.className = "border-b hover:bg-gray-50";
+      tr.innerHTML = `
+        <td class="p-2">${p["PART NUMBER"] || ""}</td>
+        <td class="p-2">${p["CLIENTE"] || ""}</td>
+        <td class="p-2">${p["ENTRADA"] || ""}</td>
+        <td class="p-2">${p["SHIP DATE"] || ""}</td>
+        <td class="p-2">${p["STATUS"] || ""}</td>
+        <td class="p-2">
+          <button class="bg-blue-500 text-white px-2 py-1 rounded text-sm editarStatus">Editar</button>
+        </td>
+      `;
+      tabela.appendChild(tr);
+
+      // evento editar status
+      tr.querySelector(".editarStatus").addEventListener("click", ()=>{
+        editarStatus(idx);
+      });
+    });
+  }
+
+  // filtro em tempo real
+  $('#filtroProdutos', mount).addEventListener("input", e=>{
+    filtroTexto = e.target.value;
+    renderTabela();
+  });
+
+  // adicionar novo produto
+  $('#btnNovoProduto', mount).addEventListener("click", ()=>{
+    abrirModalNovoProduto();
+  });
+
+  renderTabela();
+
+  // ==== Funções auxiliares ====
+  function editarStatus(idx){
+    const produto = produtos[idx];
+    const novoStatus = prompt(`Editar status do produto ${produto["PART NUMBER"]}`, produto.STATUS);
+    if (novoStatus !== null && novoStatus.trim() !== ""){
+      const statusAtualizado = novoStatus.trim();
+      
+      // Se o produto tem ID do Firebase, atualizar no Firebase
+      if (produto.id) {
+        firebaseService.updateProduto(produto.id, { STATUS: statusAtualizado })
+          .then(() => {
+            produtos[idx].STATUS = statusAtualizado;
+            // Atualizar também na lista global
+            const produtoGlobal = produtosanuais.find(p => p.id === produto.id);
+            if (produtoGlobal) {
+              produtoGlobal.STATUS = statusAtualizado;
+            }
+            renderTabela();
+            
+            // Recarregar dados do gráfico
+            graphData = agruparProdutosPorMes(produtosanuais);
+            statusData = gerarStatusData(produtosanuais, year, month);
+            
+            alert("Status atualizado com sucesso no Firebase!");
+          })
+          .catch(error => {
+            console.error("Erro ao atualizar status:", error);
+            alert("Erro ao atualizar status. Tente novamente.");
+          });
+      } else {
+        // Fallback para produtos sem ID (dados antigos)
+        produtos[idx].STATUS = statusAtualizado;
+        renderTabela();
+        alert("Status atualizado (somente em memória - produto sem ID do Firebase)");
+      }
+    }
+  }
+
+  function abrirModalNovoProduto(){
+    let modal = document.getElementById("modal-novo-produto");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "modal-novo-produto";
+      modal.className = "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50";
+      document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = `
+      <div class="bg-white rounded-lg shadow-lg p-6 w-1/2">
+        <h3 class="text-lg font-bold mb-4">Adicionar Novo Produto</h3>
+        <div class="grid grid-cols-2 gap-4">
+          <input type="text" id="novoPart" placeholder="Part Number" class="border px-3 py-2 rounded"/>
+          <input type="text" id="novoCliente" placeholder="Cliente" class="border px-3 py-2 rounded"/>
+          <input type="text" id="novoEntrada" placeholder="Data Entrada (dd/mm/yyyy)" class="border px-3 py-2 rounded"/>
+          <input type="text" id="novoShip" placeholder="Ship Date" class="border px-3 py-2 rounded"/>
+          <input type="text" id="novoStatus" placeholder="Status" class="border px-3 py-2 rounded col-span-2"/>
+        </div>
+        <div class="flex justify-end mt-4 gap-2">
+          <button id="cancelarNovo" class="bg-gray-500 text-white px-4 py-2 rounded">Cancelar</button>
+          <button id="salvarNovo" class="bg-green-600 text-white px-4 py-2 rounded">Salvar</button>
+        </div>
+      </div>
+    `;
+
+    // cancelar
+    modal.querySelector("#cancelarNovo").addEventListener("click", ()=> modal.remove());
+
+    // salvar
+    modal.querySelector("#salvarNovo").addEventListener("click", async ()=>{
+      const novo = {
+        "PART NUMBER": $("#novoPart", modal).value,
+        "CLIENTE": $("#novoCliente", modal).value,
+        "ENTRADA": $("#novoEntrada", modal).value,
+        "SHIP DATE": $("#novoShip", modal).value,
+        "STATUS": $("#novoStatus", modal).value,
+      };
+      
+      try {
+        // Adicionar ao Firebase
+        const novoId = await firebaseService.addProduto(novo);
+        console.log("Produto adicionado ao Firebase com ID:", novoId);
+        
+        // Adicionar à lista local com o ID do Firebase
+        produtos.push({ id: novoId, ...novo });
+        produtosanuais.push({ id: novoId, ...novo });
+        
+        modal.remove();
+        renderTabela();
+        
+        // Recarregar dados do gráfico
+        graphData = agruparProdutosPorMes(produtosanuais);
+        statusData = gerarStatusData(produtosanuais, year, month);
+        
+        alert("Produto adicionado com sucesso ao Firebase!");
+      } catch (error) {
+        console.error("Erro ao adicionar produto:", error);
+        alert("Erro ao adicionar produto. Tente novamente.");
+      }
+    });
+  }
+}
+
 
   // init
 App();
