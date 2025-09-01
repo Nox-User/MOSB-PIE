@@ -23,20 +23,6 @@
   }
 
   // ======== dados ========
-  const clientdata = [
-    { name: 'Caterpillar', rise: true, value: 42, id: 1 },
-    { name: 'Komatsu', rise: false, value: 34, id: 2 },
-    { name: 'John Deere', rise: false, value: 32, id: 3 },
-    { name: 'Volvo', rise: true, value: 20, id: 4 },
-  ];
-  const segmentationData = [
-    { c1: 'Usinagem', c2: '25', c3: '#363636', color: '#535353' },
-    { c1: 'Dobra', c2: '14', c3: '#818bb1', color: '#595f77' },
-    { c1: 'Chanfro', c2: '10', c3: '#2c365d', color: '#232942' },
-    { c1: 'Solda', c2: '3', c3: '#334ed8', color: '#2c3051' },
-  ];
-  const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-
 
 // ========= Gráfico ========
 function agruparProdutosPorMes(produtos, anos) {
@@ -75,7 +61,7 @@ function agruparProdutosPorMes(produtos, anos) {
 }
 
 // Importar configuração do Firebase
-import { firebaseService } from './firebase-config.js';
+import { firebaseService } from 'https://nox-user.github.io/MOSB-PIE/firebase-config.js';
 
 let produtosanuais = [];
 let graphData = [];
@@ -261,42 +247,7 @@ function gerarStatusData(produtos, year) {
           ${notifications ? `<div class='flex sm:hidden xl:flex bg-pink-600  w-5 h-5 items-center justify-center rounded-full mr-2'><div class='text-white text-sm'>${notifications}</div></div>`: ''}
         </div>`
     }
-
-    
-    function UsageCard(){
-      // barra horizontal animada
-      const id = 'usageBar_'+Math.random().toString(36).slice(2);
-      const percentId = id+'_p';
-      // inserido como svg simples
-      const svg = `
-        <div class="w-full p-3 h-28 hidden sm:block sm:h-20 xl:h-32">
-          <div class="rounded-xl w-full h-full px-3 sm:px-0 xl:px-3 overflow-hidden" style="background-image:url('https://assets.codepen.io/3685267/res-react-dash-usage-card.svg')">
-            <div class="block sm:hidden xl:block pt-3">
-              <div class="font-bold text-gray-300 text-sm">Used Space</div>
-              <div class="text-gray-500 text-xs">Última Atualização, 16 de Agosto</div>
-              <div id="${percentId}" class="text-right text-gray-400 text-xs">0%</div>
-              <div class="w-full text-gray-300">
-                <svg viewBox="0 0 100 11" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <line x1="5" y1="5.25" x2="95" y2="5.25" stroke="#3C3C3C" stroke-width="5" stroke-linecap="round"/>
-                  <line id="${id}" x1="5" y1="5.25" x2="5" y2="5.25" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>
-                </svg>
-              </div>
-            </div>
-          </div>
-        </div>`;
-      setTimeout(()=>{
-        const line = document.getElementById(id);
-        const label = document.getElementById(percentId);
-        animateValue({from:0,to:77,duration:1400,onUpdate:(v)=>{
-          const x2 = 5 + (90*(v/100));
-          if(line){ line.setAttribute('x2', String(x2)); }
-          if(label){ label.textContent = `${Math.round(v)}%`; }
-        }});
-      });
-      return svg;
-    }
-    
-
+ 
     // util icons/images
     function SidebarIcon(id){
       const map={
