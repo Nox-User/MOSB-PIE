@@ -75,7 +75,7 @@ function agruparProdutosPorMes(produtos, anos) {
 }
 
 // Importar configuração do Firebase
-import { firebaseService } from 'https://nox-user.github.io/MOSB-PIE/firebase-config.js';
+import { firebaseService } from './firebase-config.js';
 
 let produtosanuais = [];
 let graphData = [];
@@ -953,14 +953,51 @@ function ProdutosPage(mount){
   let produtos = [...produtosanuais]; // cópia local
   let filtroTexto = "";
 
+  // Captura clientes únicos para popular select
+  const clientesUnicos = [...new Set(produtos.map(p => p.CLIENTE).filter(Boolean))];
+  const selectCliente = $('#filtroCliente', mount);
+  clientesUnicos.forEach(c => {
+    const opt = document.createElement("option");
+    opt.value = c;
+    opt.textContent = c;
+    selectCliente.appendChild(opt);
+  });
+
+  // Eventos dos filtros
+  ['#filtroProdutos','#filtroCliente','#filtroProcesso','#filtroDataInicio','#filtroDataFim']
+    .forEach(sel => {
+      $(sel, mount).addEventListener("input", renderTabela);
+      $(sel, mount).addEventListener("change", renderTabela);
+    });
+
   mount.innerHTML = `
     <div class="p-6 w-full">
       <h2 class="text-2xl font-bold mb-4">GERENCIAMENTO DE PRODUTOS</h2>
 
       <!-- Barra de ações -->
-      <div class="flex items-center mb-4 gap-4">
-        <input type="text" id="filtroProdutos" placeholder="Pesquisar produtos..." 
+      <!-- Barra de filtros -->
+      <div class="flex flex-wrap items-center mb-4 gap-4">
+        <!-- Texto -->
+        <input type="text" id="filtroProdutos" placeholder="Pesquisar..." 
           class="border rounded px-3 py-2 flex-grow"/>
+
+        <!-- Cliente -->
+        <select id="filtroCliente" class="border px-3 py-2 rounded">
+          <option value="">Todos os Clientes</option>
+        </select>
+
+        <!-- Processo -->
+        <select id="filtroProcesso" class="border px-3 py-2 rounded">
+          <option value="">Todos os Processos</option>
+          <option value="USINAGEM">USINAGEM</option>
+          <option value="DOBRA">DOBRA</option>
+          <option value="CHANFRO">CHANFRO</option>
+          <option value="SOLDA">SOLDA</option>
+        </select>
+
+        <!-- Data inicial -->
+        <input type="date" id="filtroDataInicio" class="border rounded px-3 py-2"/>
+
         <button id="btnNovoProduto" class="bg-green-600 text-white px-4 py-2 rounded">+ Novo Produto</button>
       </div>
 
@@ -985,34 +1022,74 @@ function ProdutosPage(mount){
 
   const tabela = $('#tabelaProdutos', mount);
 
-  function renderTabela(){
-    tabela.innerHTML = "";
-    const filtrados = produtos.filter(p => {
-      const txt = Object.values(p).join(" ").toLowerCase();
-      return txt.includes(filtroTexto.toLowerCase());
-    });
 
-    filtrados.forEach((p, idx)=>{
-      const tr = document.createElement("tr");
-      tr.className = "border-b hover:bg-gray-50";
-      tr.innerHTML = `
-        <td class="p-2">${p["PART NUMBER"] || ""}</td>
-        <td class="p-2">${p["CLIENTE"] || ""}</td>
-        <td class="p-2">${p["ENTRADA"] || ""}</td>
-        <td class="p-2">${p["SHIP DATE"] || ""}</td>
-        <td class="p-2">${p["STATUS"] || ""}</td>
-        <td class="p-2">
-          <button class="bg-blue-500 text-white px-2 py-1 rounded text-sm editarStatus">Editar</button>
-        </td>
-      `;
-      tabela.appendChild(tr);
+  function renderStatusBadge(status) {
+    const s = (status || "").toUpperCase();
+    let cor = "bg-gray-400 text-white";
+    if (s.includes("FINALIZADO")) cor = "bg-green-500 text-white";
+    else if (s.includes("ANDAMENTO")) cor = "bg-blue-500 text-white";
+    else if (s.includes("NÃO INICIADO") || s.includes("NAO INICIADO")) cor = "bg-gray-500 text-white";
+    else cor = "bg-red-500 text-white"; // status desconhecido
 
-      // evento editar status
-      tr.querySelector(".editarStatus").addEventListener("click", ()=>{
-        editarStatus(idx);
-      });
-    });
+    return `<span class="px-2 py-1 rounded text-xs font-bold ${cor}">${status}</span>`;
   }
+
+
+
+    function renderTabela() {
+      tabela.innerHTML = "";
+
+      const texto = filtroTexto.toLowerCase();
+      const clienteSelecionado = $('#filtroCliente').value;
+      const processoSelecionado = $('#filtroProcesso').value;
+      const dataInicio = $('#filtroDataInicio').value;
+
+      const filtrados = produtos.filter(p => {
+        // 🔸 1. Filtro por texto
+        const txt = Object.values(p).join(" ").toLowerCase();
+        if (texto && !txt.includes(texto)) return false;
+
+        // 🔸 2. Filtro por cliente
+        if (clienteSelecionado && p.CLIENTE !== clienteSelecionado) return false;
+
+        // 🔸 3. Filtro por processo (verifica no STATUS)
+        if (processoSelecionado && !(p.STATUS || "").toUpperCase().includes(processoSelecionado)) return false;
+
+        // 🔸 4. Filtro por intervalo de datas
+        const data = p["ENTRADA"] || p["SHIP DATE"];
+        if (data) {
+          const [dia, mes, ano] = data.split("/");
+          const dataProduto = new Date(`${ano}-${mes}-${dia}`);
+
+          if (dataInicio) {
+            const inicio = new Date(dataInicio);
+            if (dataProduto < inicio) return false;
+          }
+        }
+
+        return true;
+      });
+
+      // Renderiza os produtos filtrados
+      filtrados.forEach((p, idx) => {
+        const tr = document.createElement("tr");
+        tr.className = "border-b hover:bg-gray-50";
+        tr.innerHTML = `
+          <td class="p-2">${p["PART NUMBER"] || ""}</td>
+          <td class="p-2">${p["CLIENTE"] || ""}</td>
+          <td class="p-2">${p["ENTRADA"] || ""}</td>
+          <td class="p-2">${p["SHIP DATE"] || ""}</td>
+          <td class="p-2">${renderStatusBadge(p["STATUS"])}</td>
+          <td class="p-2">
+            <button class="bg-blue-500 text-white px-2 py-1 rounded text-sm editarStatus">Editar</button>
+          </td>
+        `;
+        tabela.appendChild(tr);
+
+        tr.querySelector(".editarStatus").addEventListener("click", () => editarStatus(idx));
+      });
+    }
+
 
   // filtro em tempo real
   $('#filtroProdutos', mount).addEventListener("input", e=>{
@@ -1028,42 +1105,49 @@ function ProdutosPage(mount){
   renderTabela();
 
   // ==== Funções auxiliares ====
-  function editarStatus(idx){
+  function editarStatus(idx) {
     const produto = produtos[idx];
-    const novoStatus = prompt(`Editar status do produto ${produto["PART NUMBER"]}`, produto.STATUS);
-    if (novoStatus !== null && novoStatus.trim() !== ""){
-      const statusAtualizado = novoStatus.trim();
-      
-      // Se o produto tem ID do Firebase, atualizar no Firebase
-      if (produto.id) {
-        firebaseService.updateProduto(produto.id, { STATUS: statusAtualizado })
-          .then(() => {
-            produtos[idx].STATUS = statusAtualizado;
-            // Atualizar também na lista global
-            const produtoGlobal = produtosanuais.find(p => p.id === produto.id);
-            if (produtoGlobal) {
-              produtoGlobal.STATUS = statusAtualizado;
-            }
-            renderTabela();
-            
-            // Recarregar dados do gráfico
-            graphData = agruparProdutosPorMes(produtosanuais);
-            statusData = gerarStatusData(produtosanuais, year, month);
-            
-            alert("Status atualizado com sucesso no Firebase!");
-          })
-          .catch(error => {
-            console.error("Erro ao atualizar status:", error);
-            alert("Erro ao atualizar status. Tente novamente.");
-          });
-      } else {
-        // Fallback para produtos sem ID (dados antigos)
-        produtos[idx].STATUS = statusAtualizado;
-        renderTabela();
-        alert("Status atualizado (somente em memória - produto sem ID do Firebase)");
-      }
+
+    let modal = document.getElementById("modal-editar-status");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "modal-editar-status";
+      modal.className = "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50";
+      document.body.appendChild(modal);
     }
+
+    modal.innerHTML = `
+      <div class="bg-white rounded-lg shadow-lg p-6 w-1/3">
+        <h3 class="text-lg font-bold mb-4">Editar Status - ${produto["PART NUMBER"]}</h3>
+        <select id="selectNovoStatus" class="border px-3 py-2 rounded w-full">
+          <option value="NÃO INICIADO">NÃO INICIADO</option>
+          <option value="EM ANDAMENTO">EM ANDAMENTO</option>
+          <option value="FINALIZADO">FINALIZADO</option>
+        </select>
+        <div class="flex justify-end mt-4 gap-2">
+          <button id="cancelarEditar" class="bg-gray-500 text-white px-4 py-2 rounded">Cancelar</button>
+          <button id="salvarEditar" class="bg-blue-600 text-white px-4 py-2 rounded">Salvar</button>
+        </div>
+      </div>
+    `;
+
+    // seleciona o valor atual
+    modal.querySelector("#selectNovoStatus").value = produto.STATUS || "";
+
+    modal.querySelector("#cancelarEditar").addEventListener("click", ()=> modal.remove());
+    modal.querySelector("#salvarEditar").addEventListener("click", async ()=>{
+      const novoStatus = modal.querySelector("#selectNovoStatus").value;
+      if (produto.id) {
+        await firebaseService.updateProduto(produto.id, { STATUS: novoStatus });
+        produtos[idx].STATUS = novoStatus;
+        const produtoGlobal = produtosanuais.find(p => p.id === produto.id);
+        if (produtoGlobal) produtoGlobal.STATUS = novoStatus;
+        renderTabela();
+        modal.remove();
+      }
+    });
   }
+
 
   function abrirModalNovoProduto(){
     let modal = document.getElementById("modal-novo-produto");
@@ -1079,10 +1163,20 @@ function ProdutosPage(mount){
         <h3 class="text-lg font-bold mb-4">Adicionar Novo Produto</h3>
         <div class="grid grid-cols-2 gap-4">
           <input type="text" id="novoPart" placeholder="Part Number" class="border px-3 py-2 rounded"/>
-          <input type="text" id="novoCliente" placeholder="Cliente" class="border px-3 py-2 rounded"/>
+          <select id="novoCliente" class="border px-3 py-2 rounded">
+            <option value="">Selecione o Cliente</option>
+            <option value="VOLVO">VOLVO</option>
+            <option value="KOMATSU">KOMATSU</option>
+            <option value="JOHN DEERE">JOHN DEERE</option>
+          </select>
           <input type="text" id="novoEntrada" placeholder="Data Entrada (dd/mm/yyyy)" class="border px-3 py-2 rounded"/>
           <input type="text" id="novoShip" placeholder="Ship Date" class="border px-3 py-2 rounded"/>
-          <input type="text" id="novoStatus" placeholder="Status" class="border px-3 py-2 rounded col-span-2"/>
+          <select id="novoStatus" class="border px-3 py-2 rounded col-span-2">
+            <option value="">Selecione o Status</option>
+            <option value="NÃO INICIADO">NÃO INICIADO</option>
+            <option value="EM ANDAMENTO">EM ANDAMENTO</option>
+            <option value="FINALIZADO">FINALIZADO</option>
+          </select>
         </div>
         <div class="flex justify-end mt-4 gap-2">
           <button id="cancelarNovo" class="bg-gray-500 text-white px-4 py-2 rounded">Cancelar</button>
