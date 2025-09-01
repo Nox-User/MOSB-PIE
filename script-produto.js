@@ -276,7 +276,7 @@ function gerarStatusData(produtos, year) {
     return asHtml? html: (()=>{ const img=new Image(); img.src=`https://assets.codepen.io/3685267/${path}.svg`; img.className=className; return img; })();
   }
   function IconButton({icon='options', className='w-4 h-4', onclick, asHtml=false}){
-    const html = `<button ${onclick?`onclick=\"${onclick}\"`:''} type="button" class="${className}"><img src="../../assets/icons/Mosb-Black-bgWhite.jpg" class="w-full h-full"/></button>`;
+    const html = `<button ${onclick?`onclick=\"${onclick}\"`:''} type="button" class="${className}"><img src="../../assets/icons/book.jpg" class="w-full h-full"/></button>`;
     return asHtml? html: (()=>{ const btn=document.createElement('button'); btn.type='button'; btn.className=className; btn.innerHTML=`<img src="https://assets.codepen.io/3685267/${icon}.svg" class="w-full h-full"/>`; if(onclick) btn.setAttribute('onclick', onclick); return btn; })();
   }
   
