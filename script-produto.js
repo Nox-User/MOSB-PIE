@@ -199,7 +199,7 @@ function gerarStatusData(produtos, year) {
       mount.innerHTML = `
         <div class="flex-shrink-0 overflow-hidden p-2 mt-12">
           <div class="flex items-center h-full sm:justify-center xl:justify-start p-2 sidebar-separator-top">
-            ${IconButton({icon:'res-react-dash-logo', className:'w-20 h-10', asHtml:true})}
+            ${IconButton({icon:'res-react-dash-logo', className:'w-8 h-8', asHtml:true})}
             <div class="block sm:hidden xl:block ml-2 font-bold text-xl text-black">PRODUTOS</div>
             <div class="flex-grow sm:hidden xl:block"></div>
             ${IconButton({icon:'res-react-dash-sidebar-close', className:'block sm:hidden', asHtml:true, onclick:'__onSidebarHide()'})}
@@ -268,6 +268,10 @@ function gerarStatusData(produtos, year) {
     window.__onSidebarOpen = () => {
       $('#sidebar').classList.remove('hidden');
     };
+    window.__onSidebarToggle = () => {
+      const sidebar = $('#sidebar');
+      sidebar.classList.toggle('hidden');
+    };
     render();
   }
 
@@ -275,7 +279,7 @@ function gerarStatusData(produtos, year) {
     const html = `<img src="https://assets.codepen.io/3685267/${path}.svg" alt="" class="${className}"/>`;
     return asHtml? html: (()=>{ const img=new Image(); img.src=`https://assets.codepen.io/3685267/${path}.svg`; img.className=className; return img; })();
   }
-  function IconButton({icon='options', className='w-4 h-4', onclick, asHtml=false}){
+  function IconButton({icon='options', className='w-2 h-2', onclick, asHtml=false}){
     const html = `<button ${onclick?`onclick=\"${onclick}\"`:''} type="button" class="${className}"><img src="../../assets/icons/clipboard.png" class="w-full h-full"/></button>`;
     return asHtml? html: (()=>{ const btn=document.createElement('button'); btn.type='button'; btn.className=className; btn.innerHTML=`<img src="https://assets.codepen.io/3685267/${icon}.svg" class="w-full h-full"/>`; if(onclick) btn.setAttribute('onclick', onclick); return btn; })();
   }
@@ -1001,11 +1005,13 @@ function ProdutosPage(mount){
         <td class="p-2">${renderStatusBadge(p["STATUS"])}</td>
         <td class="p-2">
           <button class="bg-blue-500 text-white px-2 py-1 rounded text-sm editarProduto">Editar</button>
+          <button class="bg-gray-600 text-white px-2 py-1 rounded text-sm visualizarProduto">Visualizar</button>
         </td>
       `;
       tabela.appendChild(tr);
 
       tr.querySelector(".editarProduto").addEventListener("click", () => editarProduto(idx));
+      tr.querySelector(".visualizarProduto").addEventListener("click", () => visualizarProduto(idx));
     });
   }
 
@@ -1054,15 +1060,29 @@ function ProdutosPage(mount){
             <option value="VOLVO">VOLVO</option>
             <option value="KOMATSU">KOMATSU</option>
             <option value="JOHN DEERE">JOHN DEERE</option>
+            <option value="CATERPILLAR">CATERPILLAR</option>
+            <option value="KION">KION</option>
+            <option value="TOYOTA">TOYOTA</option>
+            <option value="CL CALDEIRARIA">CL CALDEIRARIA</option              
           </select>
           <input type="text" id="novoEntrada" placeholder="Data Entrada (dd/mm/yyyy)" class="border px-3 py-2 rounded"/>
           <input type="text" id="novoShip" placeholder="Ship Date" class="border px-3 py-2 rounded"/>
+          <input type="number" id="novoTempoComercial" placeholder="Tempo Comercial (h)" class="border px-3 py-2 rounded"/>
           <select id="novoStatus" class="border px-3 py-2 rounded col-span-2">
             <option value="">Selecione o Status</option>
             <option value="NÃO INICIADO">NÃO INICIADO</option>
             <option value="EM ANDAMENTO">EM ANDAMENTO</option>
             <option value="FINALIZADO">FINALIZADO</option>
           </select>
+          <div class="col-span-2">
+            <label class="font-bold">Processos:</label>
+            <div class="flex gap-4 mt-2">
+              <label><input type="checkbox" value="USINAGEM" class="novoProcesso"> Usinagem</label>
+              <label><input type="checkbox" value="DOBRA" class="novoProcesso"> Dobra</label>
+              <label><input type="checkbox" value="CHANFRO" class="novoProcesso"> Chanfro</label>
+              <label><input type="checkbox" value="SOLDA" class="novoProcesso"> Solda</label>
+            </div>
+          </div>
         </div>
         <div class="flex justify-end mt-4 gap-2">
           <button id="cancelarNovo" class="bg-gray-500 text-white px-4 py-2 rounded">Cancelar</button>
@@ -1082,6 +1102,10 @@ function ProdutosPage(mount){
         "ENTRADA": $("#novoEntrada", modal).value,
         "SHIP DATE": $("#novoShip", modal).value,
         "STATUS": $("#novoStatus", modal).value,
+        "tempo_comercial": parseInt($("#novoTempoComercial", modal)?.value) || 0,
+        "tempo_engenharia": parseInt($("#novoTempoEngenharia", modal)?.value) || 0,
+        "tempo_homologado": parseInt($("#novoTempoHomologado", modal)?.value) || 0,
+        "processos": processosSelecionados
       };
       
       try {
@@ -1130,24 +1154,61 @@ function ProdutosPage(mount){
             <option value="VOLVO">VOLVO</option>
             <option value="KOMATSU">KOMATSU</option>
             <option value="JOHN DEERE">JOHN DEERE</option>
+            <option value="CATERPILLAR">CATERPILLAR</option>
+            <option value="KION">KION</option>
+            <option value="TOYOTA">TOYOTA</option>
+            <option value="CL CALDEIRARIA">CL CALDEIRARIA</option             
           </select>
           
           <input type="text" id="editEntrada" value="${produto["ENTRADA"] || ""}" placeholder="Data Entrada (dd/mm/yyyy)" class="border px-3 py-2 rounded"/>
           <input type="text" id="editShip" value="${produto["SHIP DATE"] || ""}" placeholder="Ship Date" class="border px-3 py-2 rounded"/>
-          
+          <input type="number" id="novoTempoComercial" placeholder="Tempo Comercial (h)" class="border px-3 py-2 rounded"/>
+          <input type="number" id="novoTempoEngenharia" placeholder="Tempo Engenharia (h)" class="border px-3 py-2 rounded"/>
+          <input type="number" id="novoTempoHomologado" placeholder="Tempo Homologado (h)" class="border px-3 py-2 rounded"/>
+
+
           <select id="editStatus" class="border px-3 py-2 rounded col-span-2">
             <option value="">Selecione o Status</option>
             <option value="NÃO INICIADO">NÃO INICIADO</option>
             <option value="EM ANDAMENTO">EM ANDAMENTO</option>
             <option value="FINALIZADO">FINALIZADO</option>
+            <option value="PROCESSO DE USINAGEM">PROCESSO DE USINAGEM</option>
+            <option value="PROCESSO DE CHANFRO">PROCESSO DE CHANFRO</option>
+            <option value="PROCESSO DE DOBRA">PROCESSO DE DOBRA</option>
+            <option value="PROCESSO DE SOLDA">PROCESSO DE SOLDA</option>
           </select>
+
+          <div class="col-span-2">
+            <label class="font-bold">Processos:</label>
+            <div class="flex gap-4 mt-2">
+              <label><input type="checkbox" value="USINAGEM" class="editProcesso"> Usinagem</label>
+              <label><input type="checkbox" value="DOBRA" class="editProcesso"> Dobra</label>
+              <label><input type="checkbox" value="CHANFRO" class="editProcesso"> Chanfro</label>
+              <label><input type="checkbox" value="SOLDA" class="editProcesso"> Solda</label>
+            </div>
+          </div>
+
         </div>
+
         <div class="flex justify-end mt-4 gap-2">
           <button id="cancelarEditar" class="bg-gray-500 text-white px-4 py-2 rounded">Cancelar</button>
           <button id="salvarEditar" class="bg-blue-600 text-white px-4 py-2 rounded">Salvar</button>
         </div>
+
       </div>
     `;
+
+    (produto.processos || []).forEach(proc => {
+      const cb = modal.querySelector(`.editProcesso[value="${proc}"]`);
+      if (cb) cb.checked = true;
+    });
+
+
+    const processosSelecionados = Array.from(
+      modal.querySelectorAll(".editProcesso:checked")
+    ).map(cb => cb.value);
+
+
 
     // seleciona valores atuais
     modal.querySelector("#editCliente").value = produto["CLIENTE"] || "";
@@ -1164,6 +1225,10 @@ function ProdutosPage(mount){
         "ENTRADA": $("#editEntrada", modal).value,
         "SHIP DATE": $("#editShip", modal).value,
         "STATUS": $("#editStatus", modal).value,
+        "tempo_comercial": parseInt($("#editTempoComercial", modal)?.value) || 0,
+        "tempo_engenharia": parseInt($("#editTempoEngenharia", modal)?.value) || 0,
+        "tempo_homologado": parseInt($("#editTempoHomologado", modal)?.value) || 0,
+        "processos": processosSelecionados
       };
 
       try {
@@ -1185,6 +1250,46 @@ function ProdutosPage(mount){
     });
   }
 
+  function visualizarProduto(idx) {
+    const produto = produtos[idx];
+
+    let modal = document.getElementById("modal-visualizar-produto");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "modal-visualizar-produto";
+      modal.className = "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50";
+      document.body.appendChild(modal);
+    }
+
+    const processos = (produto.processos || []).join(", ") || "Nenhum processo cadastrado";
+
+    modal.innerHTML = `
+      <div class="bg-white rounded-lg shadow-lg p-6 w-1/2 max-h-[80vh] overflow-y-auto">
+        <h3 class="text-lg font-bold mb-4">Detalhes do Produto</h3>
+        <div class="grid grid-cols-2 gap-4">
+          <div><strong>Part Number:</strong> ${produto["PART NUMBER"] || ""}</div>
+          <div><strong>Cliente:</strong> ${produto["CLIENTE"] || ""}</div>
+          <div><strong>Entrada:</strong> ${produto["ENTRADA"] || ""}</div>
+          <div><strong>Ship Date:</strong> ${produto["SHIP DATE"] || ""}</div>
+          <div><strong>Status:</strong> ${produto["STATUS"] || ""}</div>
+          <div><strong>Tempo Comercial:</strong> ${produto.tempo_comercial || 0} h</div>
+          <div><strong>Tempo Engenharia:</strong> ${produto.tempo_engenharia || 0} h</div>
+          <div><strong>Tempo Homologado:</strong> ${produto.tempo_homologado || 0} h</div>
+          <div class="col-span-2"><strong>Processos:</strong> ${processos}</div>
+        </div>
+        <div class="flex justify-end mt-4">
+          <button id="fecharVisualizar" class="bg-red-500 text-white px-4 py-2 rounded">Fechar</button>
+        </div>
+      </div>
+    `;
+
+    const processosSelecionados = Array.from(
+      modal.querySelectorAll(".novoProcesso:checked")
+    ).map(cb => cb.value);
+
+    modal.querySelector("#fecharVisualizar").addEventListener("click", () => modal.remove());
+  }
+
 
     // Captura clientes únicos para popular select
   const clientesUnicos = [...new Set(produtos.map(p => p.CLIENTE).filter(Boolean))];
@@ -1196,8 +1301,12 @@ function ProdutosPage(mount){
     selectCliente.appendChild(opt);
   });
 
+
+
+
+
   // Eventos dos filtros
-  ['#filtroProdutos','#filtroCliente','#filtroProcesso','#filtroDataInicio','#filtroDataFim']
+  ['#filtroProdutos','#filtroCliente','#filtroProcesso','#filtroDataInicio']
     .forEach(sel => {
       $(sel, mount).addEventListener("input", renderTabela);
       $(sel, mount).addEventListener("change", renderTabela);
