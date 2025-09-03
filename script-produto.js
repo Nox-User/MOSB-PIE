@@ -317,34 +317,50 @@ function gerarStatusData(produtos, year) {
         <div class="font-bold mb-2">${label}</div>
         <div class="grid grid-cols-3 gap-2">
           <div>
-            <label>Comercial (h)</label>
-            <input type="number" min="0" step="0.1" 
-                  class="tempoProc border px-2 py-1 rounded w-full"
+            <label>Comercial</label>
+            <input type="text" class="tempoProc border px-2 py-1 rounded w-full" 
                   data-proc="${proc}" data-tipo="comercial"
                   value="${valores.comercial ?? ""}">
           </div>
           <div>
-            <label>Engenharia (h)</label>
-            <input type="number" min="0" step="0.1" 
-                  class="tempoProc border px-2 py-1 rounded w-full"
+            <label>Engenharia</label>
+            <input type="text" class="tempoProc border px-2 py-1 rounded w-full"
                   data-proc="${proc}" data-tipo="engenharia"
                   value="${valores.engenharia ?? ""}">
           </div>
           <div>
-            <label>Homologado (h)</label>
-            <input type="number" min="0" step="0.1" 
-                  class="tempoProc border px-2 py-1 rounded w-full"
+            <label>Homologado</label>
+            <input type="text" class="tempoProc border px-2 py-1 rounded w-full"
                   data-proc="${proc}" data-tipo="homologado"
                   value="${valores.homologado ?? ""}">
           </div>
         </div>
       `;
+
       container.appendChild(wrap);
+
+      // === aplicar máscara em todos os inputs do wrap recém-criado ===
+      wrap.querySelectorAll(".tempoProc").forEach(input => {
+        input.setAttribute("maxlength", "6"); // ex: "12h30m"
+        input.addEventListener("input", () => {
+          let v = input.value.replace(/\D/g, ""); // só números
+          if (v.length > 4) v = v.slice(0, 4);   // máximo 4 dígitos
+
+          let horas = v.slice(0, 2);
+          let minutos = v.slice(2);
+
+          let resultado = "";
+          if (horas) resultado += horas + "h";
+          if (minutos) resultado += minutos + "m";
+
+          input.value = resultado;
+        });
+      });
     });
-}
+  }
 
 
-  // Coleta objeto { USINAGEM: 3.5, SOLDA: 1, ... } a partir dos inputs
+    // Coleta objeto { USINAGEM: 3.5, SOLDA: 1, ... } a partir dos inputs
   function coletarTemposPorProcesso(modal) {
     const tempos = {};
     modal.querySelectorAll(".tempoProc").forEach(inp => {
@@ -356,8 +372,6 @@ function gerarStatusData(produtos, year) {
     });
     return tempos;
   }
-
-
 
 
 
