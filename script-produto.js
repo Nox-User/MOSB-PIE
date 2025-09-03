@@ -1019,7 +1019,7 @@ function ProdutosPage(mount){
 
 
       <!-- Tabela -->
-      <div class="overflow-auto border rounded-lg">
+      <div class="tabela-overview overflow-auto border rounded-lg">
         <table class="w-full text-left border-collapse">
           <thead>
             <tr class="bg-gray-200 text-gray-700">
