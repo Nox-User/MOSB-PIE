@@ -2,8 +2,8 @@
   // Data Atual
   const now = new Date();
 
-  const month = "AGOSTO";//now.toLocaleString('default', { month: 'long' }).toUpperCase();
-  const monthnumber = 8;//now.getMonth() + 1;
+  const month = now.toLocaleString('default', { month: 'long' }).toUpperCase();
+  const monthnumber = now.getMonth() + 1;
   const year = now.getFullYear(); 
   const day = now.getDate();
 
