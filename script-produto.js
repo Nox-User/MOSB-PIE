@@ -492,7 +492,7 @@ function Graph(mount){
             </div>
           </div>
         </div>
-        <!-- Filtro de ano à direita -->
+        <!-- Filtro de ano a direita -->
         <div class="ml-2">
           <label for="anos">Filtrar por </label>
           <select id="anos" class="border p-2 rounded">
